@@ -104,6 +104,28 @@ Para diagnosticar no navegador:
 /api/library/status
 ```
 
+### Enviar cifras e VS para a Railway sem GitHub
+
+O Railway CLI não tem `railway volume upload`. Para popular o Volume, faça um deploy manual único incluindo os arquivos ignorados e deixe o app copiar para `/data` no start.
+
+No serviço da Railway, configure temporariamente:
+
+```text
+SEED_LIBRARY_ON_START=1
+CIFRAS_DIR=/data/cifras
+VS_DIR=/data/vs
+```
+
+Depois, no terminal local:
+
+```bash
+npx @railway/cli login
+npx @railway/cli link
+npx @railway/cli up --no-gitignore
+```
+
+Quando `/api/library/status` mostrar os arquivos em `/data`, remova `SEED_LIBRARY_ON_START` ou troque para `0` e volte a usar deploy pelo GitHub.
+
 ## Formato de entrada
 
 ```text
