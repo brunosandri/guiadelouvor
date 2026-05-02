@@ -71,6 +71,39 @@ Coloque arquivos nestas pastas na raiz do projeto:
 
 A aba Biblioteca permite buscar arquivos por nome. Ao abrir um PDF da pasta `cifras`, o texto é extraído e colocado na prévia editável. Ao selecionar um MP3 da pasta `vs`, o app mostra um player de áudio.
 
+### Biblioteca na Railway
+
+Os arquivos de `cifras` e `vs` não são versionados no GitHub porque PDFs/MP3s podem deixar o deploy pesado. Em produção, use um Volume da Railway ou outro diretório persistente.
+
+Caminhos aceitos pelo app, em ordem:
+
+- Variável `CIFRAS_DIR`
+- Padrão `/data/cifras`
+- Pasta local `cifras`
+- Variável `VS_DIR`
+- Padrão `/data/vs`
+- Pasta local `vs`
+
+Configuração recomendada na Railway:
+
+```text
+CIFRAS_DIR=/data/cifras
+VS_DIR=/data/vs
+```
+
+Monte um Volume em `/data` e coloque os arquivos em:
+
+```text
+/data/cifras/*.pdf
+/data/vs/*.mp3
+```
+
+Para diagnosticar no navegador:
+
+```text
+/api/library/status
+```
+
 ## Formato de entrada
 
 ```text

@@ -12,9 +12,9 @@ export type LibraryFile = {
   bpm?: string;
 };
 
-const ROOTS: Record<LibraryKind, string> = {
-  cifra: path.join(process.cwd(), "cifras"),
-  vs: path.join(process.cwd(), "vs")
+const DEFAULT_ROOTS: Record<LibraryKind, string[]> = {
+  cifra: [process.env.CIFRAS_DIR ?? "", "/data/cifras", path.join(process.cwd(), "cifras")],
+  vs: [process.env.VS_DIR ?? "", "/data/vs", path.join(process.cwd(), "vs")]
 };
 
 const EXTENSIONS: Record<LibraryKind, string> = {
@@ -27,7 +27,28 @@ const TOM_KEY_PATTERN = /\bTOM\s*([A-G](?:#|b)?m?)\b/i;
 const BPM_PATTERN = /(\d+(?:[.,]\d+)?)\s*BPM/i;
 
 export function getLibraryRoot(kind: LibraryKind) {
-  return ROOTS[kind];
+  return DEFAULT_ROOTS[kind].find((root) => root && existsSync(root)) ?? DEFAULT_ROOTS[kind].at(-1) ?? "";
+}
+
+export function getLibraryStatus() {
+  return (["cifra", "vs"] as const).map((kind) => {
+    const root = getLibraryRoot(kind);
+    const exists = Boolean(root && existsSync(root));
+    const extension = EXTENSIONS[kind];
+    const count = exists
+      ? readdirSync(root, { withFileTypes: true }).filter(
+          (entry) => !entry.name.startsWith(".") && entry.isFile() && entry.name.toLowerCase().endsWith(extension)
+        ).length
+      : 0;
+
+    return {
+      kind,
+      root,
+      exists,
+      count,
+      envVar: kind === "cifra" ? "CIFRAS_DIR" : "VS_DIR"
+    };
+  });
 }
 
 export function listLibraryFiles(kind: LibraryKind, query = "", limit = 80): LibraryFile[] {
