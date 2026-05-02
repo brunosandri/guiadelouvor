@@ -248,28 +248,30 @@ export function CifraApp() {
   return (
     <main className="min-h-screen">
       <section className="border-b bg-card">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <FileText className="h-6 w-6" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground sm:h-11 sm:w-11">
+              <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-normal">Cifra Igreja</h1>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">Cifra Igreja</h1>
               <p className="text-muted-foreground">Organize cifras para ensaio, culto e impressão</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
-        <Tabs defaultValue="pdf" className="w-full">
-          <TabsList className="grid h-auto w-full grid-cols-2 sm:grid-cols-5">
+      <section className="mx-auto grid max-w-7xl gap-4 px-3 py-4 sm:px-6 sm:py-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+        <Tabs defaultValue="pdf" className="min-w-0">
+          <div className="-mx-3 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0">
+          <TabsList className="grid h-auto min-w-[620px] grid-cols-5 sm:min-w-0">
             <TabsTrigger value="pdf">Enviar PDF</TabsTrigger>
             <TabsTrigger value="biblioteca">Biblioteca</TabsTrigger>
             <TabsTrigger value="texto">Colar cifra</TabsTrigger>
             <TabsTrigger value="config">Configurações</TabsTrigger>
             <TabsTrigger value="resultado">Resultado final</TabsTrigger>
           </TabsList>
+          </div>
 
           <TabsContent value="pdf">
             <Card>
@@ -280,7 +282,7 @@ export function CifraApp() {
               <CardContent className="space-y-4">
                 <Label
                   htmlFor="pdf"
-                  className="flex min-h-36 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border border-dashed bg-muted/40 p-6 text-center"
+                  className="flex min-h-36 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border border-dashed bg-muted/40 p-4 text-center sm:p-6"
                 >
                   <Upload className="h-8 w-8 text-primary" />
                   <span className="text-sm text-muted-foreground">Selecione um PDF com cifra</span>
@@ -288,12 +290,12 @@ export function CifraApp() {
                     id="pdf"
                     type="file"
                     accept="application/pdf"
-                    className="max-w-sm bg-card"
+                    className="max-w-sm bg-card text-sm"
                     onChange={(event) => handlePdfUpload(event.target.files?.[0])}
                   />
                 </Label>
                 {pdfStatus ? <p className="text-sm text-muted-foreground">{pdfStatus}</p> : null}
-                <Textarea value={rawText} onChange={(event) => setRawText(event.target.value)} className="min-h-80 font-mono" />
+                <Textarea value={rawText} onChange={(event) => setRawText(event.target.value)} className="min-h-[360px] font-mono text-[15px] leading-6 sm:min-h-80 sm:text-sm" />
               </CardContent>
             </Card>
           </TabsContent>
@@ -305,7 +307,7 @@ export function CifraApp() {
                 <CardDescription>Abra PDFs salvos na memoria, busque na pasta cifras e toque VS em MP3.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex flex-col gap-2 md:flex-row">
                   <div className="relative flex-1">
                     <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -318,11 +320,11 @@ export function CifraApp() {
                       className="pl-9"
                     />
                   </div>
-                  <Button onClick={() => loadLibraryFiles(libraryQuery)}>
+                  <Button onClick={() => loadLibraryFiles(libraryQuery)} className="w-full md:w-auto">
                     <Search className="h-4 w-4" />
                     Buscar
                   </Button>
-                  <Button onClick={saveCurrentToMemory} variant="outline">
+                  <Button onClick={saveCurrentToMemory} variant="outline" className="w-full md:w-auto">
                     <Save className="h-4 w-4" />
                     Salvar memoria
                   </Button>
@@ -330,7 +332,7 @@ export function CifraApp() {
 
                 {libraryStatus ? <p className="text-sm text-muted-foreground">{libraryStatus}</p> : null}
 
-                <div className="grid gap-4 xl:grid-cols-3">
+                <div className="grid gap-4 lg:grid-cols-3">
                   <LibraryPanel title="PDFs na memoria" empty="Nenhum PDF salvo nesta sessao.">
                     {memoryPdfs.map((item) => (
                       <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border bg-background p-3">
@@ -405,7 +407,7 @@ export function CifraApp() {
                   <Label htmlFor="title">Título</Label>
                   <Input id="title" value={title} onChange={(event) => setTitle(event.target.value)} />
                 </div>
-                <Textarea value={rawText} onChange={(event) => setRawText(event.target.value)} className="min-h-[440px] font-mono" />
+                <Textarea value={rawText} onChange={(event) => setRawText(event.target.value)} className="min-h-[520px] font-mono text-[15px] leading-6 sm:min-h-[440px] sm:text-sm" />
                 <p className="text-sm text-muted-foreground">Tom detectado pela primeira cifra: {detectedKey}</p>
               </CardContent>
             </Card>
@@ -417,10 +419,10 @@ export function CifraApp() {
                 <CardTitle>Configurações</CardTitle>
                 <CardDescription>Ajuste tom, capo, simplificação, compactação e ritmo.</CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
+              <CardContent className="grid gap-4 md:grid-cols-2">
                 <SelectField label="Tom original" value={originalKey} onValueChange={setOriginalKey} />
                 <SelectField label="Novo tom" value={newKey} onValueChange={setNewKey} />
-                <div className="grid gap-2 sm:col-span-2">
+                <div className="grid gap-2 md:col-span-2">
                   <Label>Transposição rápida</Label>
                   <Select value={quickTranspose} onValueChange={setQuickTranspose}>
                     <SelectTrigger>
@@ -444,7 +446,7 @@ export function CifraApp() {
                 <ToggleRow label="Simplificar acordes" checked={simplify} onCheckedChange={setSimplify} />
                 <ToggleRow label="Compactar para uma folha" checked={compact} onCheckedChange={setCompact} />
                 <ToggleRow label="Adicionar ritmo" checked={addRhythm} onCheckedChange={setAddRhythm} />
-                <div className="grid gap-2 sm:col-span-2">
+                <div className="grid gap-2 md:col-span-2">
                   <Label>Tipo de ritmo</Label>
                   <Select value={rhythmType} onValueChange={setRhythmType}>
                     <SelectTrigger>
@@ -512,7 +514,7 @@ function ToggleRow({
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-center gap-3 rounded-md border bg-background p-3 text-sm font-medium">
+    <label className="flex min-h-12 items-center gap-3 rounded-md border bg-background p-3 text-sm font-medium">
       <Checkbox checked={checked} onCheckedChange={(value) => onCheckedChange(Boolean(value))} />
       {label}
     </label>
@@ -533,7 +535,7 @@ function LibraryPanel({
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold">{title}</h3>
-      <div className="max-h-[430px] space-y-2 overflow-auto rounded-lg border bg-muted/30 p-2">
+      <div className="max-h-[340px] space-y-2 overflow-auto rounded-lg border bg-muted/30 p-2 sm:max-h-[430px]">
         {hasItems ? children : <p className="p-3 text-sm text-muted-foreground">{empty}</p>}
       </div>
     </div>
@@ -558,22 +560,24 @@ function ResultCard({
         <CardDescription>Visualização em folha A4 pronta para impressão.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2 print:hidden">
-          <Button onClick={onCopy} variant="secondary">
+        <div className="grid grid-cols-3 gap-2 print:hidden sm:flex sm:flex-wrap">
+          <Button onClick={onCopy} variant="secondary" className="px-2">
             <Copy className="h-4 w-4" />
             Copiar
           </Button>
-          <Button onClick={onDownload} variant="outline">
+          <Button onClick={onDownload} variant="outline" className="px-2">
             <Download className="h-4 w-4" />
             TXT
           </Button>
-          <Button onClick={() => window.print()} variant="outline">
+          <Button onClick={() => window.print()} variant="outline" className="px-2">
             <Printer className="h-4 w-4" />
             Imprimir
           </Button>
         </div>
-        <div id="print-sheet" className="mx-auto min-h-[820px] w-full max-w-[794px] bg-white p-8 shadow-sm">
-          <pre className="whitespace-pre-wrap font-mono text-[12px] leading-[1.32] text-slate-950">{finalChart}</pre>
+        <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+          <div id="print-sheet" className="mx-auto min-h-[70vh] w-[760px] max-w-none bg-white p-4 shadow-sm sm:min-h-[820px] sm:w-full sm:max-w-[794px] sm:p-8">
+            <pre className="whitespace-pre-wrap font-mono text-[11px] leading-[1.35] text-slate-950 sm:text-[12px]">{finalChart}</pre>
+          </div>
         </div>
       </CardContent>
     </Card>
