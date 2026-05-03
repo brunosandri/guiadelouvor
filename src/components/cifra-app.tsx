@@ -219,6 +219,29 @@ export function CifraApp() {
     setLibraryStatus("PDF carregado na previa e salvo na memoria.");
   }
 
+  async function uploadLibraryFiles(kind: "cifra" | "vs", files?: FileList | null) {
+    if (!files?.length) return;
+
+    setLibraryStatus(`Enviando ${files.length} arquivo(s)...`);
+    const formData = new FormData();
+    formData.append("kind", kind);
+    Array.from(files).forEach((file) => formData.append("files", file));
+
+    const response = await fetch("/api/library/upload", {
+      method: "POST",
+      body: formData
+    });
+    const data = (await response.json()) as { saved?: string[]; error?: string };
+
+    if (!response.ok) {
+      setLibraryStatus(data.error ?? "Falha ao salvar arquivos.");
+      return;
+    }
+
+    setLibraryStatus(`${data.saved?.length ?? 0} arquivo(s) salvo(s) na biblioteca.`);
+    await loadLibraryFiles(libraryQuery);
+  }
+
   function downloadTxt() {
     const blob = new Blob([finalChart], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -328,6 +351,29 @@ export function CifraApp() {
                     <Save className="h-4 w-4" />
                     Salvar memoria
                   </Button>
+                </div>
+
+                <div className="grid gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2">
+                  <label className="grid gap-2 text-sm font-medium">
+                    Enviar PDFs para cifras
+                    <Input
+                      type="file"
+                      accept="application/pdf"
+                      multiple
+                      className="bg-background text-sm"
+                      onChange={(event) => uploadLibraryFiles("cifra", event.target.files)}
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm font-medium">
+                    Enviar MP3 para VS
+                    <Input
+                      type="file"
+                      accept="audio/mpeg,.mp3"
+                      multiple
+                      className="bg-background text-sm"
+                      onChange={(event) => uploadLibraryFiles("vs", event.target.files)}
+                    />
+                  </label>
                 </div>
 
                 {libraryStatus ? <p className="text-sm text-muted-foreground">{libraryStatus}</p> : null}

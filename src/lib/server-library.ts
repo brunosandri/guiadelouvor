@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, readdirSync, statSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 export type LibraryKind = "cifra" | "vs";
@@ -28,6 +28,13 @@ const BPM_PATTERN = /(\d+(?:[.,]\d+)?)\s*BPM/i;
 
 export function getLibraryRoot(kind: LibraryKind) {
   return DEFAULT_ROOTS[kind].find((root) => root && existsSync(root)) ?? DEFAULT_ROOTS[kind].at(-1) ?? "";
+}
+
+export function getWritableLibraryRoot(kind: LibraryKind) {
+  const preferred = kind === "cifra" ? process.env.CIFRAS_DIR : process.env.VS_DIR;
+  const root = preferred || `/data/${kind === "cifra" ? "cifras" : "vs"}`;
+  mkdirSync(root, { recursive: true });
+  return root;
 }
 
 export function getLibraryStatus() {
@@ -97,6 +104,26 @@ export function streamLibraryFile(kind: LibraryKind, name: string) {
   return createReadStream(resolveLibraryFile(kind, name));
 }
 
+export function saveLibraryFile(kind: LibraryKind, name: string, buffer: Buffer) {
+  const extension = EXTENSIONS[kind];
+  const safeName = sanitizeFilename(name);
+
+  if (!safeName.toLowerCase().endsWith(extension)) {
+    throw new Error(`Arquivo precisa terminar com ${extension}.`);
+  }
+
+  const root = getWritableLibraryRoot(kind);
+  const destination = path.resolve(root, safeName);
+  const relative = path.relative(root, destination);
+
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error("Nome de arquivo invalido.");
+  }
+
+  writeFileSync(destination, buffer);
+  return destination;
+}
+
 export function parseMusicFilename(filename: string) {
   const base = filename.replace(/\.[^.]+$/, "");
   const bpm = base.match(BPM_PATTERN)?.[1]?.replace(",", ".");
@@ -128,6 +155,10 @@ export function parseMusicFilename(filename: string) {
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function sanitizeFilename(value: string) {
+  return value.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_").trim();
 }
 
 function normalizeSearch(value: string) {
