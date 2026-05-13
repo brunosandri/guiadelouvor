@@ -251,7 +251,7 @@ export function CifraApp() {
     setTitle(song.file.title);
     setRawText(body);
     setSongBlocks(createSongBlocksFromText(body));
-    setManualGuide(buildSongGuide(organizeSections(body)).order);
+    setManualGuide(parseChartHeader(song.chartText)["Guia"] ?? "");
     setInstrumentNotes(song.instrumentNotes);
     setReferenceLinksText(song.referenceLinks.map((l) => l.url).join("\n"));
     setSaveStatus("");
