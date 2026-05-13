@@ -189,7 +189,8 @@ export function buildFinalChart(params: {
     `Título: ${params.title || "Sem título"}`,
     `Tom: ${params.newKey}`,
     `Capo: ${params.capo || "Sem capo"}`,
-    params.rhythm ? `Ritmo: ${params.rhythm}` : ""
+    params.rhythm ? `Ritmo: ${params.rhythm}` : "",
+    params.guideText ? `Guia: ${params.guideText}` : ""
   ].filter(Boolean);
 
   return `${header.join("\n")}\n\n${params.body}`.trim();

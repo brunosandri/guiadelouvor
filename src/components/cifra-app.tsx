@@ -783,6 +783,9 @@ function SongDetailView({ song, onBack, onEdit }: { song: OpenedSong; onBack: ()
 
   const hasInstrumentNotes = INSTRUMENTS.some(({ key }) => song.instrumentNotes[key].trim());
   const chartBlocks = parseChartForDisplay(song.chartText);
+  const chartHeader = parseChartHeader(song.chartText);
+  const guide = chartHeader["Guia"] || chartBlocks.map((b) => b.title).filter(Boolean).join(" > ");
+  const guideParts = guide ? guide.split(/\s*>\s*/).filter(Boolean) : [];
 
   return (
     <main className="min-h-screen bg-background">
@@ -818,6 +821,31 @@ function SongDetailView({ song, onBack, onEdit }: { song: OpenedSong; onBack: ()
             </div>
           )}
         </div>
+
+        {/* Song guide */}
+        {guideParts.length > 0 && (
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.12em] text-primary/60">Ordem da música</p>
+            <div className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-0.5">
+              {guideParts.flatMap((part, i) => {
+                const items = [
+                  <span
+                    key={`p${i}`}
+                    className="shrink-0 whitespace-nowrap rounded-full border border-primary/20 bg-white px-3 py-1.5 text-[11px] font-semibold text-primary shadow-sm"
+                  >
+                    {part}
+                  </span>
+                ];
+                if (i < guideParts.length - 1) {
+                  items.push(
+                    <span key={`a${i}`} className="shrink-0 text-[11px] font-bold text-primary/40">›</span>
+                  );
+                }
+                return items;
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Reference links */}
         {song.referenceLinks.length > 0 && (
@@ -1030,6 +1058,18 @@ function ResultCard({
 }
 
 // ─── UTILITIES ───────────────────────────────────────────────────────────────
+
+function parseChartHeader(chartText: string): Record<string, string> {
+  const lines = chartText.split(/\r?\n/);
+  const firstSectionIdx = lines.findIndex((line) => detectSectionTitle(line));
+  const headerLines = firstSectionIdx === -1 ? lines : lines.slice(0, firstSectionIdx);
+  const result: Record<string, string> = {};
+  for (const line of headerLines) {
+    const colonIdx = line.indexOf(": ");
+    if (colonIdx > 0) result[line.slice(0, colonIdx)] = line.slice(colonIdx + 2);
+  }
+  return result;
+}
 
 function parseChartForDisplay(chartText: string): Array<{ title: string; notes: string; content: string }> {
   const lines = chartText.split(/\r?\n/);
