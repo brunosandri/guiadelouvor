@@ -109,6 +109,7 @@ export function CifraApp() {
   const [libraryStatus, setLibraryStatus] = useState("");
   const [activeTab, setActiveTab] = useState("biblioteca");
   const [referenceLinksText, setReferenceLinksText] = useState("");
+  const [manualGuide, setManualGuide] = useState("");
 
   const detectedKey = useMemo(() => detectOriginalKey(rawText), [rawText]);
   const librarySongs = useMemo(
@@ -120,6 +121,7 @@ export function CifraApp() {
     [libraryPdfs, vsTracks]
   );
   const referenceLinks = useMemo(() => parseReferenceLinks(referenceLinksText), [referenceLinksText]);
+  const detectedGuide = useMemo(() => buildSongGuide(organizeSections(rawText)), [rawText]);
 
   useEffect(() => {
     setMemoryPdfs(readMemoryPdfs());
@@ -156,6 +158,7 @@ export function CifraApp() {
     return buildFinalChart({
       title,
       guide,
+      guideText: manualGuide,
       originalKey,
       newKey: enableCapo ? originalKey : effectiveNewKey,
       capo,
@@ -175,7 +178,8 @@ export function CifraApp() {
     rawText,
     rhythmType,
     simplify,
-    title
+    title,
+    manualGuide
   ]);
 
   async function handlePdfUpload(file?: File) {
@@ -197,6 +201,7 @@ export function CifraApp() {
 
     setTitle(file.name.replace(/\.[^.]+$/, ""));
     setRawText(data.text);
+    setManualGuide(buildSongGuide(organizeSections(data.text)).order);
     saveMemoryPdf(file.name, data.text);
     setMemoryPdfs(readMemoryPdfs());
     setActiveTab("edicao");
@@ -235,6 +240,7 @@ export function CifraApp() {
 
     setTitle(file.title);
     setRawText(data.text);
+    setManualGuide(buildSongGuide(organizeSections(data.text)).order);
     setSelectedTrack(findRelatedTracks(file, vsTracks)[0] ?? null);
     saveMemoryPdf(data.name ?? file.name, data.text);
     setMemoryPdfs(readMemoryPdfs());
@@ -288,6 +294,7 @@ export function CifraApp() {
   function loadFromMemory(item: MemoryPdf) {
     setTitle(item.name.replace(/\.[^.]+$/, ""));
     setRawText(item.text);
+    setManualGuide(buildSongGuide(organizeSections(item.text)).order);
     setActiveTab("edicao");
   }
 
@@ -508,6 +515,24 @@ export function CifraApp() {
                 </div>
                 <Textarea value={rawText} onChange={(event) => setRawText(event.target.value)} className="min-h-[520px] font-mono text-[15px] leading-6 sm:min-h-[440px] sm:text-sm" />
                 <p className="text-sm text-muted-foreground">Tom detectado pela primeira cifra: {detectedKey}</p>
+                <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <div className="grid flex-1 gap-2">
+                      <Label htmlFor="song-guide">Guia da mÃºsica</Label>
+                      <Textarea
+                        id="song-guide"
+                        value={manualGuide}
+                        onChange={(event) => setManualGuide(event.target.value)}
+                        placeholder="IntroduÃ§Ã£o > Verso 1 > Coro > Verso 2 > Coro > Ponte > Coro"
+                        className="min-h-20 text-sm"
+                      />
+                    </div>
+                    <Button type="button" variant="outline" onClick={() => setManualGuide(detectedGuide.order)} className="w-full sm:w-auto">
+                      Usar guia detectada
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Detectado: {detectedGuide.order || "Nenhuma seÃ§Ã£o identificada"}</p>
+                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="reference-links">Links de referência</Label>
                   <Textarea
@@ -571,11 +596,32 @@ export function CifraApp() {
 
 
           <TabsContent value="resultado">
-            <ResultCard finalChart={finalChart} referenceLinks={referenceLinks} onCopy={copyFinal} onDownload={downloadTxt} onSave={saveFinalToMemory} />
+            <ResultCard
+              title={title}
+              guideText={manualGuide || detectedGuide.order}
+              originalKey={originalKey}
+              newKey={newKey}
+              finalChart={finalChart}
+              referenceLinks={referenceLinks}
+              onCopy={copyFinal}
+              onDownload={downloadTxt}
+              onSave={saveFinalToMemory}
+            />
           </TabsContent>
         </Tabs>
 
-        <ResultCard finalChart={finalChart} referenceLinks={referenceLinks} onCopy={copyFinal} onDownload={downloadTxt} onSave={saveFinalToMemory} sticky />
+        <ResultCard
+          title={title}
+          guideText={manualGuide || detectedGuide.order}
+          originalKey={originalKey}
+          newKey={newKey}
+          finalChart={finalChart}
+          referenceLinks={referenceLinks}
+          onCopy={copyFinal}
+          onDownload={downloadTxt}
+          onSave={saveFinalToMemory}
+          sticky
+        />
       </section>
     </main>
   );
@@ -648,6 +694,10 @@ function LibraryPanel({
 }
 
 function ResultCard({
+  title,
+  guideText,
+  originalKey,
+  newKey,
   finalChart,
   referenceLinks,
   onCopy,
@@ -655,6 +705,10 @@ function ResultCard({
   onSave,
   sticky = false
 }: {
+  title: string;
+  guideText: string;
+  originalKey: string;
+  newKey: string;
   finalChart: string;
   referenceLinks: ReferenceLink[];
   onCopy: () => void;
@@ -662,11 +716,29 @@ function ResultCard({
   onSave: () => void;
   sticky?: boolean;
 }) {
+  const guideItems = splitGuideItems(guideText);
+
   return (
     <Card className={sticky ? "hidden lg:block lg:sticky lg:top-5 lg:self-start" : ""}>
       <CardHeader>
-        <CardTitle>Resultado final</CardTitle>
-        <CardDescription>Visualização em folha A4 pronta para impressão.</CardDescription>
+        <div className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>{title || "Resultado final"}</CardTitle>
+              <CardDescription>Tom {newKey} | Original {originalKey}</CardDescription>
+            </div>
+            <span className="w-fit rounded-md border bg-muted px-2 py-1 text-xs font-medium">Guia</span>
+          </div>
+          {guideItems.length ? (
+            <div className="flex flex-wrap gap-2">
+              {guideItems.map((item, index) => (
+                <span key={`${item}-${index}`} className="rounded-md border bg-background px-2 py-1 text-xs font-medium text-foreground">
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-2 print:hidden sm:flex sm:flex-wrap">
@@ -799,4 +871,11 @@ function getReferenceLabel(url: string) {
   }
 
   return hostname;
+}
+
+function splitGuideItems(value: string) {
+  return value
+    .split(/>|\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }

@@ -177,6 +177,7 @@ export function compactRepeatedSections(sections: SongSection[]) {
 export function buildFinalChart(params: {
   title: string;
   guide?: ReturnType<typeof buildSongGuide>;
+  guideText?: string;
   originalKey: string;
   newKey: string;
   capo?: string;
@@ -184,10 +185,12 @@ export function buildFinalChart(params: {
   dynamics?: string;
   body: string;
 }) {
+  const guideText = params.guideText?.trim() || params.guide?.order || "";
+  const quantities = params.guide?.quantities ?? "";
   const header = [
     `Título: ${params.title || "Sem título"}`,
-    params.guide?.order ? `Guia: ${params.guide.order}` : "",
-    params.guide?.quantities ? `Quantidades: ${params.guide.quantities}` : "",
+    `Guia: ${guideText}`,
+    quantities ? `Quantidades: ${quantities}` : "",
     `Tom original: ${params.originalKey}`,
     `Novo tom: ${params.newKey}`,
     `Capo: ${params.capo || "Sem capo"}`,
