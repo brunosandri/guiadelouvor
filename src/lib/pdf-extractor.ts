@@ -33,11 +33,16 @@ const CHORD_LINE_PATTERN =
   /^\s*(?:[A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add)?[\wº°+#/()\-]*(?:\s+|$)|[|:.,/()\-\s]){2,}$/i;
 
 export async function extractPdfText(buffer: Buffer) {
-  const parsed = await pdf(buffer, {
-    pagerender: renderPdfPage
-  });
+  const [defaultParsed, positionedParsed] = await Promise.all([
+    pdf(buffer),
+    pdf(buffer, {
+      pagerender: renderPdfPage
+    })
+  ]);
 
-  return convertChordLinesToBracketChords(normalizeExtractedPdfText(parsed.text));
+  const defaultText = normalizeExtractedPdfText(defaultParsed.text);
+  const positionedText = normalizeExtractedPdfText(positionedParsed.text);
+  return convertChordLinesToBracketChords(chooseBestExtraction(defaultText, positionedText));
 }
 
 async function renderPdfPage(pageData: PdfPageData) {
@@ -140,11 +145,35 @@ function normalizeExtractedPdfText(text: string) {
         .filter((line) => !repeatedNoise.has(normalizeNoiseLine(line)))
         .filter((line) => !isPageNumberLine(line))
     )
-    .map(compactLines)
     .map((page) => page.join("\n").trim())
     .filter(Boolean);
 
   return cleanedPages.join(PAGE_BREAK).replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function chooseBestExtraction(defaultText: string, positionedText: string) {
+  if (!positionedText) return defaultText;
+  if (!defaultText) return positionedText;
+
+  const defaultScore = scoreExtraction(defaultText);
+  const positionedScore = scoreExtraction(positionedText);
+
+  return positionedScore > defaultScore + 10 ? positionedText : defaultText;
+}
+
+function scoreExtraction(text: string) {
+  const compact = text.replace(/\s+/g, " ").trim();
+  const lineCount = text.split("\n").filter((line) => line.trim()).length;
+  const wordCount = compact.split(/\s+/).filter(Boolean).length;
+  const letterSpacedPenalty = countLetterSpacedRuns(text) * 12;
+  const excessiveSpacePenalty = (text.match(/ {12,}/g)?.length ?? 0) * 4;
+  const brokenWordPenalty = (text.match(/\b[A-Za-zÀ-ÿ]\s+[A-Za-zÀ-ÿ]\s+[A-Za-zÀ-ÿ]\b/g)?.length ?? 0) * 6;
+
+  return compact.length + lineCount * 8 + wordCount * 2 - letterSpacedPenalty - excessiveSpacePenalty - brokenWordPenalty;
+}
+
+function countLetterSpacedRuns(text: string) {
+  return text.split("\n").filter((line) => /(?:\b[A-Za-zÀ-ÿ]\s){4,}[A-Za-zÀ-ÿ]\b/.test(line)).length;
 }
 
 function compactLines(lines: string[]) {
