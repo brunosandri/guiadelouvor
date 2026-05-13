@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   buildFinalChart, buildSongGuide, compactRepeatedSections,
-  formatBracketChords, organizeSections, sectionsToText
+  detectSectionTitle, formatBracketChords, organizeSections, sectionsToText
 } from "@/lib/chord-parser";
 import type { SongSection } from "@/lib/chord-parser";
 import {
@@ -778,6 +778,7 @@ function SongDetailView({ song, onBack, onEdit }: { song: OpenedSong; onBack: ()
   const [selectedTrack, setSelectedTrack] = useState<LibraryFile | null>(song.tracks[0] ?? null);
 
   const hasInstrumentNotes = INSTRUMENTS.some(({ key }) => song.instrumentNotes[key].trim());
+  const chartBlocks = parseChartForDisplay(song.chartText);
 
   return (
     <main className="min-h-screen bg-background">
@@ -883,14 +884,29 @@ function SongDetailView({ song, onBack, onEdit }: { song: OpenedSong; onBack: ()
           </div>
         )}
 
-        {/* Chord chart */}
-        <div className="rounded-2xl border bg-card shadow-sm">
-          <div className="border-b px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cifra</p>
-          </div>
-          <div className="overflow-x-auto px-4 py-4">
-            <pre className="whitespace-pre-wrap font-mono text-[12.5px] leading-relaxed text-foreground">{song.chartText}</pre>
-          </div>
+        {/* Chord chart — divided by section */}
+        <div className="space-y-3">
+          {chartBlocks.map((block, i) => (
+            <div key={i} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+              <div className="flex items-start justify-between gap-3 border-b bg-muted/40 px-4 py-2.5">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-foreground">
+                  {block.title}
+                </h3>
+                {block.notes && (
+                  <p className="max-w-[60%] text-right text-[11px] italic leading-snug text-muted-foreground">
+                    {block.notes}
+                  </p>
+                )}
+              </div>
+              {block.content && (
+                <div className="px-4 py-3">
+                  <pre className="whitespace-pre-wrap font-mono text-[12px] leading-[1.65] text-foreground">
+                    {block.content}
+                  </pre>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </main>
@@ -989,10 +1005,16 @@ function ResultCard({
           <div id="print-sheet" data-columns={columns} className="mx-auto min-h-[70vh] w-[760px] max-w-none bg-white p-4 shadow-sm sm:min-h-[820px] sm:w-full sm:max-w-[794px] sm:p-8">
             <div className={`print-block-grid ${columns === "2" ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}`}>
               {blocks.map((block) => (
-                <section key={block.id} className="print-block break-inside-avoid rounded-md border border-slate-300 bg-white p-3 text-slate-950">
-                  <h3 className="border-b border-slate-300 pb-1 text-sm font-bold uppercase tracking-normal">{block.title}</h3>
-                  {block.notes ? <p className="mt-1 text-right text-[10px] leading-tight text-slate-600">{block.notes}</p> : null}
-                  <pre className="mt-2 whitespace-pre-wrap font-mono text-[11px] leading-[1.35] sm:text-[12px]">{formatBracketChords(block.content)}</pre>
+                <section key={block.id} className="print-block break-inside-avoid overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm">
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
+                    <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-800">{block.title}</h3>
+                    {block.notes ? (
+                      <p className="max-w-[55%] text-right text-[10px] italic leading-snug text-slate-500">{block.notes}</p>
+                    ) : null}
+                  </div>
+                  <div className="px-3 py-2.5">
+                    <pre className="whitespace-pre-wrap font-mono text-[11px] leading-[1.5] sm:text-[12px]">{formatBracketChords(block.content)}</pre>
+                  </div>
                 </section>
               ))}
             </div>
@@ -1004,6 +1026,36 @@ function ResultCard({
 }
 
 // ─── UTILITIES ───────────────────────────────────────────────────────────────
+
+function parseChartForDisplay(chartText: string): Array<{ title: string; notes: string; content: string }> {
+  const lines = chartText.split(/\r?\n/);
+
+  // Find where the first real section title appears — everything before is the file header
+  let firstSectionIdx = lines.findIndex((line) => detectSectionTitle(line));
+  if (firstSectionIdx === -1) return [{ title: "", notes: "", content: chartText.trim() }];
+
+  const bodyText = lines.slice(firstSectionIdx).join("\n");
+  const sections = organizeSections(bodyText);
+
+  return sections
+    .map((section) => {
+      const obsLines: string[] = [];
+      const contentLines: string[] = [];
+      for (const line of section.lines) {
+        if (line.trim().startsWith("Obs:")) {
+          obsLines.push(line.replace(/^Obs:\s*/, "").trim());
+        } else {
+          contentLines.push(line);
+        }
+      }
+      return {
+        title: section.title,
+        notes: obsLines.join("\n"),
+        content: contentLines.join("\n").trim()
+      };
+    })
+    .filter((b) => b.content || b.notes);
+}
 
 function parseResultFile(text: string): { instrumentNotes: InstrumentNotes; referenceLinksText: string; chartText: string } {
   if (!text.startsWith("[OBSERVACOES]")) {
