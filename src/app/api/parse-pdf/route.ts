@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import pdf from "pdf-parse";
+import { extractPdfText } from "@/lib/pdf-extractor";
 
 export const runtime = "nodejs";
 
@@ -17,10 +17,10 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const parsed = await pdf(buffer);
+    const text = await extractPdfText(buffer);
 
     return NextResponse.json({
-      text: parsed.text.replace(/\n{3,}/g, "\n\n")
+      text
     });
   } catch (error) {
     console.error(error);

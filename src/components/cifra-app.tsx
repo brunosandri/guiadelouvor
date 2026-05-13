@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Copy, Download, FileText, Music2, Printer, Save, Search, Trash2, Upload } from "lucide-react";
+import { Copy, Download, ExternalLink, FileText, Music2, Printer, Save, Search, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   buildFinalChart,
+  buildSongGuide,
   compactRepeatedSections,
   formatBracketChords,
   organizeSections,
@@ -79,6 +80,11 @@ type MemoryPdf = {
   savedAt: string;
 };
 
+type ReferenceLink = {
+  url: string;
+  label: string;
+};
+
 const MEMORY_KEY = "cifra-igreja:pdf-memory";
 
 export function CifraApp() {
@@ -101,8 +107,19 @@ export function CifraApp() {
   const [vsTracks, setVsTracks] = useState<LibraryFile[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<LibraryFile | null>(null);
   const [libraryStatus, setLibraryStatus] = useState("");
+  const [activeTab, setActiveTab] = useState("biblioteca");
+  const [referenceLinksText, setReferenceLinksText] = useState("");
 
   const detectedKey = useMemo(() => detectOriginalKey(rawText), [rawText]);
+  const librarySongs = useMemo(
+    () =>
+      libraryPdfs.map((file) => ({
+        ...file,
+        tracks: findRelatedTracks(file, vsTracks)
+      })),
+    [libraryPdfs, vsTracks]
+  );
+  const referenceLinks = useMemo(() => parseReferenceLinks(referenceLinksText), [referenceLinksText]);
 
   useEffect(() => {
     setMemoryPdfs(readMemoryPdfs());
@@ -128,6 +145,7 @@ export function CifraApp() {
     if (simplify) workingText = simplifyText(workingText);
 
     let sections = organizeSections(workingText);
+    const guide = buildSongGuide(sections);
     if (compact) sections = compactRepeatedSections(sections);
 
     const body = formatBracketChords(sectionsToText(sections));
@@ -137,6 +155,7 @@ export function CifraApp() {
 
     return buildFinalChart({
       title,
+      guide,
       originalKey,
       newKey: enableCapo ? originalKey : effectiveNewKey,
       capo,
@@ -176,9 +195,11 @@ export function CifraApp() {
       return;
     }
 
+    setTitle(file.name.replace(/\.[^.]+$/, ""));
     setRawText(data.text);
     saveMemoryPdf(file.name, data.text);
     setMemoryPdfs(readMemoryPdfs());
+    setActiveTab("edicao");
     setPdfStatus("Texto extraído. Revise a prévia antes de processar.");
   }
 
@@ -214,8 +235,10 @@ export function CifraApp() {
 
     setTitle(file.title);
     setRawText(data.text);
+    setSelectedTrack(findRelatedTracks(file, vsTracks)[0] ?? null);
     saveMemoryPdf(data.name ?? file.name, data.text);
     setMemoryPdfs(readMemoryPdfs());
+    setActiveTab("edicao");
     setLibraryStatus("PDF carregado na previa e salvo na memoria.");
   }
 
@@ -257,9 +280,15 @@ export function CifraApp() {
     setMemoryPdfs(readMemoryPdfs());
   }
 
+  function saveFinalToMemory() {
+    saveMemoryPdf(`${title || "cifra"} - resultado.txt`, finalChart);
+    setMemoryPdfs(readMemoryPdfs());
+  }
+
   function loadFromMemory(item: MemoryPdf) {
     setTitle(item.name.replace(/\.[^.]+$/, ""));
     setRawText(item.text);
+    setActiveTab("edicao");
   }
 
   function removeFromMemory(id: string) {
@@ -285,13 +314,12 @@ export function CifraApp() {
       </section>
 
       <section className="mx-auto grid max-w-7xl gap-4 px-3 py-4 sm:px-6 sm:py-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
-        <Tabs defaultValue="pdf" className="min-w-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0">
           <div className="-mx-3 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0">
-          <TabsList className="grid h-auto min-w-[620px] grid-cols-5 sm:min-w-0">
-            <TabsTrigger value="pdf">Enviar PDF</TabsTrigger>
+          <TabsList className="grid h-auto min-w-[620px] grid-cols-4 sm:min-w-0">
             <TabsTrigger value="biblioteca">Biblioteca</TabsTrigger>
-            <TabsTrigger value="texto">Colar cifra</TabsTrigger>
-            <TabsTrigger value="config">Configurações</TabsTrigger>
+            <TabsTrigger value="pdf">Enviar PDF</TabsTrigger>
+            <TabsTrigger value="edicao">Edição</TabsTrigger>
             <TabsTrigger value="resultado">Resultado final</TabsTrigger>
           </TabsList>
           </div>
@@ -318,7 +346,6 @@ export function CifraApp() {
                   />
                 </Label>
                 {pdfStatus ? <p className="text-sm text-muted-foreground">{pdfStatus}</p> : null}
-                <Textarea value={rawText} onChange={(event) => setRawText(event.target.value)} className="min-h-[360px] font-mono text-[15px] leading-6 sm:min-h-80 sm:text-sm" />
               </CardContent>
             </Card>
           </TabsContent>
@@ -378,7 +405,38 @@ export function CifraApp() {
 
                 {libraryStatus ? <p className="text-sm text-muted-foreground">{libraryStatus}</p> : null}
 
-                <div className="grid gap-4 lg:grid-cols-3">
+                <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+                  <LibraryPanel title="Arquivos com VS" empty="Nenhum PDF encontrado na pasta cifras.">
+                    {librarySongs.map((file) => (
+                      <div key={file.name} className="rounded-md border bg-background p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <button className="min-w-0 flex-1 text-left" onClick={() => openLibraryPdf(file)}>
+                            <span className="block truncate text-sm font-medium">{file.title}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{file.name}</span>
+                          </button>
+                          <Button size="sm" variant="outline" onClick={() => openLibraryPdf(file)}>
+                            <FileText className="h-4 w-4" />
+                            Abrir
+                          </Button>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {file.tracks.length ? (
+                            file.tracks.map((track) => (
+                              <Button key={track.name} size="sm" variant="secondary" onClick={() => setSelectedTrack(track)}>
+                                <Music2 className="h-4 w-4" />
+                                {track.bpm ? `${track.bpm} BPM` : "VS"}
+                              </Button>
+                            ))
+                          ) : (
+                            <span className="rounded-md border bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+                              Sem VS relacionado
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </LibraryPanel>
+
                   <LibraryPanel title="PDFs na memoria" empty="Nenhum PDF salvo nesta sessao.">
                     {memoryPdfs.map((item) => (
                       <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border bg-background p-3">
@@ -392,20 +450,9 @@ export function CifraApp() {
                       </div>
                     ))}
                   </LibraryPanel>
+                </div>
 
-                  <LibraryPanel title="Pasta cifras" empty="Nenhum PDF encontrado.">
-                    {libraryPdfs.map((file) => (
-                      <button
-                        key={file.name}
-                        className="w-full rounded-md border bg-background p-3 text-left hover:bg-accent"
-                        onClick={() => openLibraryPdf(file)}
-                      >
-                        <span className="block truncate text-sm font-medium">{file.title}</span>
-                        <span className="block truncate text-xs text-muted-foreground">{file.name}</span>
-                      </button>
-                    ))}
-                  </LibraryPanel>
-
+                <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
                   <LibraryPanel title="VS em MP3" empty="Nenhum MP3 encontrado.">
                     {vsTracks.map((track) => (
                       <button
@@ -423,26 +470,32 @@ export function CifraApp() {
                       </button>
                     ))}
                   </LibraryPanel>
-                </div>
 
-                {selectedTrack ? (
                   <div className="rounded-lg border bg-background p-4">
-                    <div className="mb-3">
-                      <p className="font-medium">{selectedTrack.title}</p>
-                      <p className="text-sm text-muted-foreground">{selectedTrack.name}</p>
-                    </div>
-                    <audio
-                      controls
-                      className="w-full"
-                      src={`/api/library/audio?name=${encodeURIComponent(selectedTrack.name)}`}
-                    />
+                    {selectedTrack ? (
+                      <>
+                        <div className="mb-3">
+                          <p className="font-medium">{selectedTrack.title}</p>
+                          <p className="text-sm text-muted-foreground">{selectedTrack.name}</p>
+                        </div>
+                        <audio
+                          controls
+                          className="w-full"
+                          src={`/api/library/audio?name=${encodeURIComponent(selectedTrack.name)}`}
+                        />
+                      </>
+                    ) : (
+                      <div className="flex min-h-28 items-center justify-center rounded-md border border-dashed bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+                        Selecione um VS para tocar aqui.
+                      </div>
+                    )}
                   </div>
-                ) : null}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="texto">
+          <TabsContent value="edicao">
             <Card>
               <CardHeader>
                 <CardTitle>Cifra em texto</CardTitle>
@@ -455,68 +508,74 @@ export function CifraApp() {
                 </div>
                 <Textarea value={rawText} onChange={(event) => setRawText(event.target.value)} className="min-h-[520px] font-mono text-[15px] leading-6 sm:min-h-[440px] sm:text-sm" />
                 <p className="text-sm text-muted-foreground">Tom detectado pela primeira cifra: {detectedKey}</p>
+                <div className="grid gap-2">
+                  <Label htmlFor="reference-links">Links de referência</Label>
+                  <Textarea
+                    id="reference-links"
+                    value={referenceLinksText}
+                    onChange={(event) => setReferenceLinksText(event.target.value)}
+                    placeholder="Cole um link do YouTube ou outro vídeo por linha"
+                    className="min-h-24 text-sm"
+                  />
+                </div>
+                <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 md:grid-cols-2">
+                  <SelectField label="Tom original" value={originalKey} onValueChange={setOriginalKey} />
+                  <SelectField label="Novo tom" value={newKey} onValueChange={setNewKey} />
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label>Transposição rápida</Label>
+                    <Select value={quickTranspose} onValueChange={setQuickTranspose}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="custom">Usar novo tom</SelectItem>
+                        <SelectItem value="1">Subir meio tom</SelectItem>
+                        <SelectItem value="-1">Descer meio tom</SelectItem>
+                        <SelectItem value="2">Subir 1 tom</SelectItem>
+                        <SelectItem value="-2">Descer 1 tom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <ToggleRow label="Ativar capo" checked={enableCapo} onCheckedChange={setEnableCapo} />
+                  <div className="grid gap-2">
+                    <Label htmlFor="capo">Casa do capo</Label>
+                    <Input id="capo" type="number" min="0" max="11" value={capoHouse} onChange={(event) => setCapoHouse(event.target.value)} />
+                  </div>
+                  <SelectField label="Forma tocada" value={playedShape} onValueChange={setPlayedShape} />
+                  <ToggleRow label="Simplificar acordes" checked={simplify} onCheckedChange={setSimplify} />
+                  <ToggleRow label="Compactar para uma folha" checked={compact} onCheckedChange={setCompact} />
+                  <ToggleRow label="Adicionar ritmo" checked={addRhythm} onCheckedChange={setAddRhythm} />
+                  <div className="grid gap-2 md:col-span-2">
+                    <Label>Tipo de ritmo</Label>
+                    <Select value={rhythmType} onValueChange={setRhythmType}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.keys(RHYTHMS).map((rhythm) => (
+                          <SelectItem key={rhythm} value={rhythm}>
+                            {rhythm}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={() => setActiveTab("resultado")} className="md:col-span-2">
+                    <FileText className="h-4 w-4" />
+                    Ver resultado final
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="config">
-            <Card>
-              <CardHeader>
-                <CardTitle>Configurações</CardTitle>
-                <CardDescription>Ajuste tom, capo, simplificação, compactação e ritmo.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <SelectField label="Tom original" value={originalKey} onValueChange={setOriginalKey} />
-                <SelectField label="Novo tom" value={newKey} onValueChange={setNewKey} />
-                <div className="grid gap-2 md:col-span-2">
-                  <Label>Transposição rápida</Label>
-                  <Select value={quickTranspose} onValueChange={setQuickTranspose}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="custom">Usar novo tom</SelectItem>
-                      <SelectItem value="1">Subir meio tom</SelectItem>
-                      <SelectItem value="-1">Descer meio tom</SelectItem>
-                      <SelectItem value="2">Subir 1 tom</SelectItem>
-                      <SelectItem value="-2">Descer 1 tom</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <ToggleRow label="Ativar capo" checked={enableCapo} onCheckedChange={setEnableCapo} />
-                <div className="grid gap-2">
-                  <Label htmlFor="capo">Casa do capo</Label>
-                  <Input id="capo" type="number" min="0" max="11" value={capoHouse} onChange={(event) => setCapoHouse(event.target.value)} />
-                </div>
-                <SelectField label="Forma tocada" value={playedShape} onValueChange={setPlayedShape} />
-                <ToggleRow label="Simplificar acordes" checked={simplify} onCheckedChange={setSimplify} />
-                <ToggleRow label="Compactar para uma folha" checked={compact} onCheckedChange={setCompact} />
-                <ToggleRow label="Adicionar ritmo" checked={addRhythm} onCheckedChange={setAddRhythm} />
-                <div className="grid gap-2 md:col-span-2">
-                  <Label>Tipo de ritmo</Label>
-                  <Select value={rhythmType} onValueChange={setRhythmType}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(RHYTHMS).map((rhythm) => (
-                        <SelectItem key={rhythm} value={rhythm}>
-                          {rhythm}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="resultado">
-            <ResultCard finalChart={finalChart} onCopy={copyFinal} onDownload={downloadTxt} />
+            <ResultCard finalChart={finalChart} referenceLinks={referenceLinks} onCopy={copyFinal} onDownload={downloadTxt} onSave={saveFinalToMemory} />
           </TabsContent>
         </Tabs>
 
-        <ResultCard finalChart={finalChart} onCopy={copyFinal} onDownload={downloadTxt} sticky />
+        <ResultCard finalChart={finalChart} referenceLinks={referenceLinks} onCopy={copyFinal} onDownload={downloadTxt} onSave={saveFinalToMemory} sticky />
       </section>
     </main>
   );
@@ -590,13 +649,17 @@ function LibraryPanel({
 
 function ResultCard({
   finalChart,
+  referenceLinks,
   onCopy,
   onDownload,
+  onSave,
   sticky = false
 }: {
   finalChart: string;
+  referenceLinks: ReferenceLink[];
   onCopy: () => void;
   onDownload: () => void;
+  onSave: () => void;
   sticky?: boolean;
 }) {
   return (
@@ -606,7 +669,11 @@ function ResultCard({
         <CardDescription>Visualização em folha A4 pronta para impressão.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-2 print:hidden sm:flex sm:flex-wrap">
+        <div className="grid grid-cols-2 gap-2 print:hidden sm:flex sm:flex-wrap">
+          <Button onClick={onSave} variant="secondary" className="px-2">
+            <Save className="h-4 w-4" />
+            Salvar
+          </Button>
           <Button onClick={onCopy} variant="secondary" className="px-2">
             <Copy className="h-4 w-4" />
             Copiar
@@ -620,6 +687,21 @@ function ResultCard({
             Imprimir
           </Button>
         </div>
+        {referenceLinks.length ? (
+          <div className="space-y-2 print:hidden">
+            <h3 className="text-sm font-semibold">Referências</h3>
+            <div className="flex flex-wrap gap-2">
+              {referenceLinks.map((link, index) => (
+                <Button key={`${link.url}-${index}`} asChild variant="outline" size="sm">
+                  <a href={link.url} target="_blank" rel="noreferrer">
+                    <ExternalLink className="h-4 w-4" />
+                    {link.label}
+                  </a>
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
           <div id="print-sheet" className="mx-auto min-h-[70vh] w-[760px] max-w-none bg-white p-4 shadow-sm sm:min-h-[820px] sm:w-full sm:max-w-[794px] sm:p-8">
             <pre className="whitespace-pre-wrap font-mono text-[11px] leading-[1.35] text-slate-950 sm:text-[12px]">{finalChart}</pre>
@@ -655,4 +737,66 @@ function saveMemoryPdf(name: string, text: string) {
   ].slice(0, 20);
 
   localStorage.setItem(MEMORY_KEY, JSON.stringify(next));
+}
+
+function findRelatedTracks(file: LibraryFile, tracks: LibraryFile[]) {
+  const fileKey = libraryMatchKey(file);
+
+  return tracks.filter((track) => {
+    const trackKey = libraryMatchKey(track);
+    return Boolean(
+      fileKey &&
+        trackKey &&
+        (fileKey === trackKey || trackKey.includes(fileKey) || fileKey.includes(trackKey))
+    );
+  });
+}
+
+function libraryMatchKey(file: LibraryFile) {
+  return normalizeLibraryName(file.title || file.name);
+}
+
+function normalizeLibraryName(value: string) {
+  return value
+    .replace(/\.[^.]+$/, "")
+    .replace(/\b\d+(?:[.,]\d+)?\s*bpm\b/gi, "")
+    .replace(/\btom\s*[a-g](?:#|b)?m?\b/gi, "")
+    .replace(/\b[a-g](?:#|b)?m?\b/gi, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/gi, " ")
+    .toLowerCase()
+    .trim();
+}
+
+function parseReferenceLinks(value: string): ReferenceLink[] {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const url = normalizeReferenceUrl(line);
+      return url ? { url, label: getReferenceLabel(url) } : null;
+    })
+    .filter((link): link is ReferenceLink => Boolean(link));
+}
+
+function normalizeReferenceUrl(value: string) {
+  try {
+    const url = new URL(value.startsWith("http") ? value : `https://${value}`);
+    if (!["http:", "https:"].includes(url.protocol)) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function getReferenceLabel(url: string) {
+  const hostname = new URL(url).hostname.replace(/^www\./, "");
+
+  if (hostname === "youtu.be" || hostname.endsWith("youtube.com")) {
+    return "YouTube";
+  }
+
+  return hostname;
 }

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { NextResponse } from "next/server";
-import pdf from "pdf-parse";
+import { extractPdfText } from "@/lib/pdf-extractor";
 import { resolveLibraryFile } from "@/lib/server-library";
 
 export const runtime = "nodejs";
@@ -15,11 +15,11 @@ export async function GET(request: Request) {
     }
 
     const filePath = resolveLibraryFile("cifra", name);
-    const parsed = await pdf(readFileSync(filePath));
+    const text = await extractPdfText(readFileSync(filePath));
 
     return NextResponse.json({
       name,
-      text: parsed.text.replace(/\n{3,}/g, "\n\n")
+      text
     });
   } catch (error) {
     console.error(error);
