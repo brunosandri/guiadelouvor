@@ -34,6 +34,10 @@
 }
 
 @media print {
+  @page {
+    margin: 10mm;
+  }
+
   body * {
     visibility: hidden;
   }
@@ -44,9 +48,32 @@
   }
 
   #print-sheet {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    box-shadow: none;
+    position: fixed !important;
+    inset: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  #print-sheet .print-block-grid {
+    display: grid !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  #print-sheet[data-columns="1"] .print-block-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  #print-sheet[data-columns="2"] .print-block-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #print-sheet .print-block {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 }

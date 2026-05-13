@@ -925,10 +925,10 @@ function ResultCard({
           </div>
         ) : null}
         <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
-          <div id="print-sheet" className="mx-auto min-h-[70vh] w-[760px] max-w-none bg-white p-4 shadow-sm sm:min-h-[820px] sm:w-full sm:max-w-[794px] sm:p-8">
-            <div className={columns === "2" ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}>
+          <div id="print-sheet" data-columns={columns} className="mx-auto min-h-[70vh] w-[760px] max-w-none bg-white p-4 shadow-sm sm:min-h-[820px] sm:w-full sm:max-w-[794px] sm:p-8">
+            <div className={`print-block-grid ${columns === "2" ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}`}>
               {blocks.map((block) => (
-                <section key={block.id} className="break-inside-avoid rounded-md border border-slate-300 bg-white p-3 text-slate-950">
+                <section key={block.id} className="print-block break-inside-avoid rounded-md border border-slate-300 bg-white p-3 text-slate-950">
                   <h3 className="border-b border-slate-300 pb-1 text-sm font-bold uppercase tracking-normal">{block.title}</h3>
                   {block.notes ? <p className="mt-1 text-right text-[10px] leading-tight text-slate-600">{block.notes}</p> : null}
                   <pre className="mt-2 whitespace-pre-wrap font-mono text-[11px] leading-[1.35] sm:text-[12px]">{formatBracketChords(block.content)}</pre>
