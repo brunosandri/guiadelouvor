@@ -194,6 +194,21 @@ export function CifraApp() {
     manualGuide
   ]);
 
+  const resultMeta = useMemo(() => {
+    const quick = quickTranspose === "custom" ? semitoneDistance(originalKey, newKey) : Number(quickTranspose);
+    const effectiveNewKey = transposeNoteToKey(originalKey, quick, newKey);
+    const capoHouseNumber = Number(capoHouse);
+    const effectiveCapoHouse =
+      Number.isFinite(capoHouseNumber) && capoHouseNumber > 0 ? capoHouseNumber : suggestCapo(originalKey, playedShape);
+    const effectivePlayedShape = transposeNoteToKey(originalKey, -effectiveCapoHouse, playedShape);
+
+    return {
+      key: enableCapo ? originalKey : effectiveNewKey,
+      capo: enableCapo ? `${effectiveCapoHouse}ª casa, tocar como ${effectivePlayedShape}` : "Sem capo",
+      rhythm: addRhythm ? rhythmType : ""
+    };
+  }, [addRhythm, capoHouse, enableCapo, newKey, originalKey, playedShape, quickTranspose, rhythmType]);
+
   const displayBlocks = useMemo(() => {
     const quick = quickTranspose === "custom" ? semitoneDistance(originalKey, newKey) : Number(quickTranspose);
     const capoHouseNumber = Number(capoHouse);
@@ -735,9 +750,9 @@ export function CifraApp() {
           <TabsContent value="resultado">
             <ResultCard
               title={title}
-              guideText={manualGuide || detectedGuide.order}
-              originalKey={originalKey}
-              newKey={newKey}
+              newKey={resultMeta.key}
+              capo={resultMeta.capo}
+              rhythm={resultMeta.rhythm}
               blocks={displayBlocks}
               columns={layoutColumns}
               finalChart={finalChart}
@@ -751,9 +766,9 @@ export function CifraApp() {
 
         <ResultCard
           title={title}
-          guideText={manualGuide || detectedGuide.order}
-          originalKey={originalKey}
-          newKey={newKey}
+          newKey={resultMeta.key}
+          capo={resultMeta.capo}
+          rhythm={resultMeta.rhythm}
           blocks={displayBlocks}
           columns={layoutColumns}
           finalChart={finalChart}
@@ -836,9 +851,9 @@ function LibraryPanel({
 
 function ResultCard({
   title,
-  guideText,
-  originalKey,
   newKey,
+  capo,
+  rhythm,
   blocks,
   columns,
   finalChart,
@@ -849,9 +864,9 @@ function ResultCard({
   sticky = false
 }: {
   title: string;
-  guideText: string;
-  originalKey: string;
   newKey: string;
+  capo: string;
+  rhythm: string;
   blocks: SongBlock[];
   columns: string;
   finalChart: string;
@@ -861,8 +876,6 @@ function ResultCard({
   onSave: () => void;
   sticky?: boolean;
 }) {
-  const guideItems = splitGuideItems(guideText);
-
   return (
     <Card className={sticky ? "hidden lg:block lg:sticky lg:top-5 lg:self-start" : ""}>
       <CardHeader>
@@ -870,19 +883,11 @@ function ResultCard({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle>{title || "Resultado final"}</CardTitle>
-              <CardDescription>Tom {newKey} | Original {originalKey}</CardDescription>
+              <CardDescription>
+                {[`Tom ${newKey}`, `Capo: ${capo}`, rhythm ? `Ritmo: ${rhythm}` : ""].filter(Boolean).join(" | ")}
+              </CardDescription>
             </div>
-            <span className="w-fit rounded-md border bg-muted px-2 py-1 text-xs font-medium">Guia</span>
           </div>
-          {guideItems.length ? (
-            <div className="flex flex-wrap gap-2">
-              {guideItems.map((item, index) => (
-                <span key={`${item}-${index}`} className="rounded-md border bg-background px-2 py-1 text-xs font-medium text-foreground">
-                  {item}
-                </span>
-              ))}
-            </div>
-          ) : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -1024,13 +1029,6 @@ function getReferenceLabel(url: string) {
   }
 
   return hostname;
-}
-
-function splitGuideItems(value: string) {
-  return value
-    .split(/>|\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function createSongBlocksFromText(text: string): SongBlock[] {
