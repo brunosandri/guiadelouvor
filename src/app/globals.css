@@ -4,32 +4,54 @@
 
 @layer base {
   :root {
-    --background: 42 27% 97%;
-    --foreground: 210 22% 13%;
+    --background: 40 28% 97%;
+    --foreground: 222 30% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 210 22% 13%;
-    --primary: 173 58% 27%;
+    --card-foreground: 222 30% 10%;
+    --primary: 168 60% 28%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 36 41% 90%;
-    --secondary-foreground: 210 22% 16%;
-    --muted: 42 25% 92%;
-    --muted-foreground: 214 14% 39%;
-    --accent: 202 61% 89%;
-    --accent-foreground: 204 43% 18%;
-    --destructive: 0 74% 46%;
+    --secondary: 40 22% 91%;
+    --secondary-foreground: 222 25% 15%;
+    --muted: 40 18% 93%;
+    --muted-foreground: 215 14% 44%;
+    --accent: 168 48% 90%;
+    --accent-foreground: 168 60% 18%;
+    --destructive: 0 72% 46%;
     --destructive-foreground: 0 0% 100%;
-    --border: 36 22% 82%;
-    --input: 36 22% 82%;
-    --ring: 173 58% 27%;
-    --radius: 0.5rem;
+    --border: 40 16% 87%;
+    --input: 40 16% 87%;
+    --ring: 168 60% 28%;
+    --radius: 0.875rem;
   }
 
   * {
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+  }
+
+  button, a, label[for] {
+    @apply transition-all duration-150;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-border;
   }
 }
 

@@ -64,9 +64,7 @@ type InstrumentNotes = {
 };
 
 type ReferenceLink = { url: string; label: string };
-
 type SongBlock = { id: string; title: string; notes: string; content: string };
-
 type MemoryPdf = { id: string; name: string; text: string; savedAt: string };
 
 type OpenedSong = {
@@ -105,13 +103,11 @@ export function CifraApp() {
   const [appView, setAppView] = useState<AppView>("library");
   const [openedSong, setOpenedSong] = useState<OpenedSong | null>(null);
 
-  // Library
   const [libraryQuery, setLibraryQuery] = useState("");
   const [libraryResults, setLibraryResults] = useState<LibraryFile[]>([]);
   const [vsTracks, setVsTracks] = useState<LibraryFile[]>([]);
   const [libraryStatus, setLibraryStatus] = useState("");
 
-  // Editor
   const [editorTab, setEditorTab] = useState("edicao");
   const [title, setTitle] = useState("Nova cifra");
   const [rawText, setRawText] = useState(SAMPLE);
@@ -197,7 +193,6 @@ export function CifraApp() {
     const effectiveNewKey = transposeNoteToKey(originalKey, quick, newKey);
     const effectiveCapoHouse =
       Number.isFinite(capoHouseNumber) && capoHouseNumber > 0 ? capoHouseNumber : suggestCapo(originalKey, playedShape);
-
     return songBlocks.map((block) => {
       let content = block.content;
       if (enableCapo) {
@@ -231,10 +226,7 @@ export function CifraApp() {
     setLibraryStatus(`Abrindo ${file.title}...`);
     const response = await fetch(`/api/library/result?name=${encodeURIComponent(file.name)}`);
     const data = (await response.json()) as { text?: string; error?: string };
-    if (!response.ok || !data.text) {
-      setLibraryStatus(data.error ?? "Falha ao abrir música.");
-      return;
-    }
+    if (!response.ok || !data.text) { setLibraryStatus(data.error ?? "Falha ao abrir música."); return; }
     const { instrumentNotes: notes, referenceLinksText: refs, chartText } = parseResultFile(data.text);
     const tracks = findRelatedTracks(file, vsTracks);
     setOpenedSong({ file, chartText, instrumentNotes: notes, referenceLinks: parseReferenceLinks(refs), tracks });
@@ -379,74 +371,99 @@ export function CifraApp() {
   if (appView === "library") {
     return (
       <main className="min-h-screen bg-background">
-        <header className="border-b bg-card">
-          <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4 sm:px-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <Music2 className="h-5 w-5" />
+        <header className="sticky top-0 z-10 border-b bg-card/90 backdrop-blur-md">
+          <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                <Music2 className="h-4 w-4" />
               </div>
-              <h1 className="text-lg font-semibold">Guia de Louvor</h1>
+              <span className="font-semibold tracking-tight">Guia de Louvor</span>
             </div>
-            <Button variant="outline" size="sm" onClick={openEditorForNew}>
-              <Pencil className="h-4 w-4" />
+            <Button
+              size="sm"
+              onClick={openEditorForNew}
+              className="rounded-full px-4 shadow-sm"
+            >
+              <Pencil className="h-3.5 w-3.5" />
               Nova cifra
             </Button>
           </div>
         </header>
 
-        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 space-y-5">
+        <div className="mx-auto max-w-3xl space-y-5 px-4 py-5 sm:px-6">
+          {/* Search */}
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={libraryQuery}
                 onChange={(e) => setLibraryQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") void loadLibraryFiles(libraryQuery); }}
                 placeholder="Buscar música..."
-                className="pl-9"
+                className="h-11 rounded-full pl-11 shadow-sm"
               />
             </div>
-            <Button onClick={() => loadLibraryFiles(libraryQuery)}>
-              <Search className="h-4 w-4" />
+            <Button
+              onClick={() => loadLibraryFiles(libraryQuery)}
+              className="h-11 rounded-full px-5 shadow-sm"
+            >
               Buscar
             </Button>
           </div>
 
-          <div className="grid gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2">
+          {/* Upload section */}
+          <div className="grid gap-3 rounded-2xl border bg-muted/40 p-4 sm:grid-cols-2">
             <label className="grid gap-1.5 text-sm font-medium">
-              Adicionar VS (MP3)
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Adicionar VS</span>
               <Input type="file" accept="audio/mpeg,.mp3" multiple className="bg-background text-sm" onChange={(e) => uploadLibraryFiles("vs", e.target.files)} />
             </label>
             <label className="grid gap-1.5 text-sm font-medium">
-              Adicionar PDF à biblioteca
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Adicionar PDF</span>
               <Input type="file" accept="application/pdf" multiple className="bg-background text-sm" onChange={(e) => uploadLibraryFiles("cifra", e.target.files)} />
             </label>
           </div>
 
           {libraryStatus ? <p className="text-sm text-muted-foreground">{libraryStatus}</p> : null}
 
+          {/* Song list */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {librarySongs.length > 0 ? `${librarySongs.length} música(s)` : "Nenhuma música na biblioteca"}
-            </p>
+            {librarySongs.length > 0 && (
+              <p className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {librarySongs.length} música{librarySongs.length !== 1 ? "s" : ""}
+              </p>
+            )}
+            {librarySongs.length === 0 && !libraryStatus && (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/30 py-14 text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
+                  <Music2 className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">Nenhuma música na biblioteca</p>
+                <p className="mt-1 text-xs text-muted-foreground">Crie uma nova cifra ou importe um PDF</p>
+              </div>
+            )}
             {librarySongs.map((song) => (
               <button
                 key={song.name}
                 onClick={() => openSong(song)}
-                className="flex w-full items-center gap-3 rounded-lg border bg-card px-4 py-3 text-left transition-colors hover:bg-accent"
+                className="group flex w-full items-center gap-3.5 rounded-2xl border bg-card px-4 py-3.5 text-left shadow-sm transition-all duration-150 hover:shadow-md active:scale-[0.985]"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 transition-colors group-hover:bg-primary/15">
+                  <Music2 className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{song.title}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="truncate font-semibold leading-tight">{song.title}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     {[song.key ? `Tom ${song.key}` : "", song.bpm ? `${song.bpm} BPM` : ""].filter(Boolean).join(" · ") || "Cifra"}
                   </p>
                 </div>
-                {song.tracks.length > 0 && (
-                  <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">VS</span>
-                )}
+                <div className="flex shrink-0 items-center gap-2">
+                  {song.tracks.length > 0 && (
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">VS</span>
+                  )}
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
+                    <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
+                  </div>
+                </div>
               </button>
             ))}
           </div>
@@ -471,31 +488,31 @@ export function CifraApp() {
 
   return (
     <main className="min-h-screen">
-      <header className="border-b bg-card">
+      <header className="sticky top-0 z-10 border-b bg-card/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <Button variant="ghost" size="sm" onClick={() => setAppView("library")} className="gap-1.5">
+          <Button variant="ghost" size="sm" onClick={() => setAppView("library")} className="-ml-2 gap-1.5 rounded-full">
             <ArrowLeft className="h-4 w-4" />
             Biblioteca
           </Button>
           <div className="h-4 w-px bg-border" />
-          <span className="text-sm font-medium text-muted-foreground truncate">{title || "Nova cifra"}</span>
+          <span className="truncate text-sm font-medium text-muted-foreground">{title || "Nova cifra"}</span>
         </div>
       </header>
 
       <section className="mx-auto grid max-w-7xl gap-4 px-3 py-4 sm:px-6 sm:py-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
         <Tabs value={editorTab} onValueChange={setEditorTab} className="min-w-0">
           <div className="-mx-3 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0">
-            <TabsList className="grid h-auto min-w-[560px] grid-cols-4 sm:min-w-0">
-              <TabsTrigger value="pdf">Importar PDF</TabsTrigger>
-              <TabsTrigger value="edicao">Edição</TabsTrigger>
-              <TabsTrigger value="observacoes">Observações</TabsTrigger>
-              <TabsTrigger value="resultado">Resultado</TabsTrigger>
+            <TabsList className="h-auto min-w-[560px] rounded-xl bg-muted/60 p-1 sm:min-w-0 sm:grid sm:grid-cols-4">
+              <TabsTrigger value="pdf" className="rounded-lg text-xs sm:text-sm">Importar PDF</TabsTrigger>
+              <TabsTrigger value="edicao" className="rounded-lg text-xs sm:text-sm">Edição</TabsTrigger>
+              <TabsTrigger value="observacoes" className="rounded-lg text-xs sm:text-sm">Observações</TabsTrigger>
+              <TabsTrigger value="resultado" className="rounded-lg text-xs sm:text-sm">Resultado</TabsTrigger>
             </TabsList>
           </div>
 
           {/* PDF TAB */}
           <TabsContent value="pdf">
-            <Card>
+            <Card className="rounded-2xl shadow-sm">
               <CardHeader>
                 <CardTitle>Importar PDF</CardTitle>
                 <CardDescription>Extraia o texto e revise antes de editar.</CardDescription>
@@ -503,26 +520,31 @@ export function CifraApp() {
               <CardContent className="space-y-4">
                 <Label
                   htmlFor="pdf"
-                  className="flex min-h-36 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border border-dashed bg-muted/40 p-4 text-center sm:p-6"
+                  className="flex min-h-36 cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/40 p-4 text-center transition-colors hover:bg-muted/60 sm:p-8"
                 >
-                  <Upload className="h-8 w-8 text-primary" />
-                  <span className="text-sm text-muted-foreground">Selecione um PDF com cifra</span>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                    <Upload className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Selecione um PDF com cifra</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">ou arraste aqui</p>
+                  </div>
                   <Input id="pdf" type="file" accept="application/pdf" className="max-w-sm bg-card text-sm" onChange={(e) => handlePdfUpload(e.target.files?.[0])} />
                 </Label>
-                {pdfStatus ? <p className="text-sm text-muted-foreground">{pdfStatus}</p> : null}
+                {pdfStatus ? <p className="rounded-xl bg-muted/50 px-4 py-3 text-sm text-muted-foreground">{pdfStatus}</p> : null}
 
                 {memoryPdfs.length > 0 && (
                   <div>
-                    <p className="mb-2 text-sm font-semibold">Recentes</p>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recentes</p>
                     <div className="space-y-2">
                       {memoryPdfs.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border bg-background p-3">
+                        <div key={item.id} className="flex items-center justify-between gap-2 rounded-xl border bg-card p-3">
                           <button className="min-w-0 flex-1 text-left" onClick={() => loadFromMemory(item)}>
                             <span className="block truncate text-sm font-medium">{item.name}</span>
                             <span className="text-xs text-muted-foreground">{new Date(item.savedAt).toLocaleString("pt-BR")}</span>
                           </button>
-                          <Button size="icon" variant="ghost" onClick={() => removeFromMemory(item.id)}>
-                            <Trash2 className="h-4 w-4" />
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => removeFromMemory(item.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       ))}
@@ -535,48 +557,50 @@ export function CifraApp() {
 
           {/* EDIÇÃO TAB */}
           <TabsContent value="edicao">
-            <Card>
+            <Card className="rounded-2xl shadow-sm">
               <CardHeader>
                 <CardTitle>Edição da cifra</CardTitle>
                 <CardDescription>Use acordes entre colchetes: [Am]palavra de Deus.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-5">
                 <div className="grid gap-2">
-                  <Label htmlFor="title">Título</Label>
-                  <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
+                  <Label htmlFor="title" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Título</Label>
+                  <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} className="h-11 rounded-xl text-base font-medium" />
                 </div>
 
-                <div className="grid gap-2 rounded-lg border bg-muted/30 p-4">
-                  <Label htmlFor="raw-text">Texto importado</Label>
-                  <Textarea id="raw-text" value={rawText} onChange={(e) => setRawText(e.target.value)} className="min-h-32 font-mono text-[13px] leading-5" />
-                  <Button type="button" variant="outline" onClick={rebuildBlocksFromRawText} className="w-full sm:w-fit">
+                <div className="grid gap-2 rounded-xl border bg-muted/30 p-4">
+                  <Label htmlFor="raw-text" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Texto importado</Label>
+                  <Textarea id="raw-text" value={rawText} onChange={(e) => setRawText(e.target.value)} className="min-h-32 rounded-xl font-mono text-[13px] leading-5" />
+                  <Button type="button" variant="outline" onClick={rebuildBlocksFromRawText} className="w-full rounded-xl sm:w-fit">
                     Recriar blocos pelo texto
                   </Button>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-semibold">Blocos da música</h3>
-                    <Button type="button" variant="outline" onClick={addSongBlock}>Nova parte</Button>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Blocos da música</p>
+                    <Button type="button" variant="outline" size="sm" onClick={addSongBlock} className="rounded-full px-4">
+                      + Nova parte
+                    </Button>
                   </div>
                   <div className="space-y-3">
                     {songBlocks.map((block, index) => (
-                      <div key={block.id} className="rounded-lg border bg-background p-3 shadow-sm">
-                        <div className="mb-3 flex items-start justify-between gap-2 border-b pb-2">
+                      <div key={block.id} className="rounded-xl border bg-card p-3 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between gap-2 border-b pb-2">
                           <Input
                             value={block.title}
                             onChange={(e) => updateSongBlock(block.id, { title: e.target.value })}
-                            className="h-10 max-w-xs font-semibold"
+                            className="h-9 max-w-xs rounded-lg font-semibold"
                           />
                           <div className="flex gap-1">
-                            <Button type="button" variant="outline" size="icon" onClick={() => moveSongBlock(index, -1)} disabled={index === 0}>
-                              <ArrowUp className="h-4 w-4" />
+                            <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => moveSongBlock(index, -1)} disabled={index === 0}>
+                              <ArrowUp className="h-3.5 w-3.5" />
                             </Button>
-                            <Button type="button" variant="outline" size="icon" onClick={() => moveSongBlock(index, 1)} disabled={index === songBlocks.length - 1}>
-                              <ArrowDown className="h-4 w-4" />
+                            <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => moveSongBlock(index, 1)} disabled={index === songBlocks.length - 1}>
+                              <ArrowDown className="h-3.5 w-3.5" />
                             </Button>
-                            <Button type="button" variant="ghost" size="icon" onClick={() => removeSongBlock(block.id)}>
-                              <Trash2 className="h-4 w-4" />
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground" onClick={() => removeSongBlock(block.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </div>
@@ -584,33 +608,35 @@ export function CifraApp() {
                           value={block.notes}
                           onChange={(e) => updateSongBlock(block.id, { notes: e.target.value })}
                           placeholder="Observação desta parte"
-                          className="mb-3 min-h-16 text-right text-xs"
+                          className="mb-3 min-h-14 rounded-lg text-right text-xs"
                         />
                         <Textarea
                           value={block.content}
                           onChange={(e) => updateSongBlock(block.id, { content: e.target.value })}
-                          className="min-h-40 font-mono text-[14px] leading-6"
+                          className="min-h-40 rounded-lg font-mono text-[14px] leading-6"
                         />
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <p className="text-sm text-muted-foreground">Tom detectado: {detectedKey}</p>
+                <p className="rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                  Tom detectado: <span className="font-semibold text-foreground">{detectedKey}</span>
+                </p>
 
-                <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+                <div className="grid gap-3 rounded-xl border bg-muted/30 p-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                     <div className="grid flex-1 gap-2">
-                      <Label htmlFor="song-guide">Guia da música</Label>
+                      <Label htmlFor="song-guide" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guia da música</Label>
                       <Textarea
                         id="song-guide"
                         value={manualGuide}
                         onChange={(e) => setManualGuide(e.target.value)}
                         placeholder="Introdução > Verso 1 > Coro > Verso 2 > Coro > Ponte > Coro"
-                        className="min-h-20 text-sm"
+                        className="min-h-20 rounded-xl text-sm"
                       />
                     </div>
-                    <Button type="button" variant="outline" onClick={() => setManualGuide(detectedGuide.order)} className="w-full sm:w-auto">
+                    <Button type="button" variant="outline" onClick={() => setManualGuide(detectedGuide.order)} className="w-full rounded-xl sm:w-auto">
                       Usar guia detectada
                     </Button>
                   </div>
@@ -618,23 +644,23 @@ export function CifraApp() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="reference-links">Links de referência (YouTube, etc.)</Label>
+                  <Label htmlFor="reference-links" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Links de referência</Label>
                   <Textarea
                     id="reference-links"
                     value={referenceLinksText}
                     onChange={(e) => setReferenceLinksText(e.target.value)}
-                    placeholder="Cole um link por linha"
-                    className="min-h-20 text-sm"
+                    placeholder="Cole um link por linha (YouTube, etc.)"
+                    className="min-h-20 rounded-xl text-sm"
                   />
                 </div>
 
-                <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 md:grid-cols-2">
+                <div className="grid gap-4 rounded-xl border bg-muted/30 p-4 md:grid-cols-2">
                   <SelectField label="Tom original" value={originalKey} onValueChange={setOriginalKey} />
                   <SelectField label="Novo tom" value={newKey} onValueChange={setNewKey} />
                   <div className="grid gap-2 md:col-span-2">
-                    <Label>Transposição rápida</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Transposição rápida</Label>
                     <Select value={quickTranspose} onValueChange={setQuickTranspose}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="custom">Usar novo tom</SelectItem>
                         <SelectItem value="1">Subir meio tom</SelectItem>
@@ -646,33 +672,33 @@ export function CifraApp() {
                   </div>
                   <ToggleRow label="Ativar capo" checked={enableCapo} onCheckedChange={setEnableCapo} />
                   <div className="grid gap-2">
-                    <Label htmlFor="capo">Casa do capo</Label>
-                    <Input id="capo" type="number" min="0" max="11" value={capoHouse} onChange={(e) => setCapoHouse(e.target.value)} />
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Casa do capo</Label>
+                    <Input type="number" min="0" max="11" value={capoHouse} onChange={(e) => setCapoHouse(e.target.value)} className="rounded-xl" />
                   </div>
                   <SelectField label="Forma tocada" value={playedShape} onValueChange={setPlayedShape} />
                   <ToggleRow label="Simplificar acordes" checked={simplify} onCheckedChange={setSimplify} />
                   <ToggleRow label="Compactar para uma folha" checked={compact} onCheckedChange={setCompact} />
                   <ToggleRow label="Adicionar ritmo" checked={addRhythm} onCheckedChange={setAddRhythm} />
                   <div className="grid gap-2 md:col-span-2">
-                    <Label>Tipo de ritmo</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo de ritmo</Label>
                     <Select value={rhythmType} onValueChange={setRhythmType}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {Object.keys(RHYTHMS).map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="grid gap-2 md:col-span-2">
-                    <Label>Layout de impressão</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Layout de impressão</Label>
                     <Select value={layoutColumns} onValueChange={setLayoutColumns}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="1">1 coluna</SelectItem>
                         <SelectItem value="2">2 colunas</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button onClick={() => setEditorTab("resultado")} className="md:col-span-2">
+                  <Button onClick={() => setEditorTab("resultado")} className="h-11 rounded-xl md:col-span-2">
                     <FileText className="h-4 w-4" />
                     Ver resultado final
                   </Button>
@@ -683,21 +709,21 @@ export function CifraApp() {
 
           {/* OBSERVAÇÕES TAB */}
           <TabsContent value="observacoes">
-            <Card>
+            <Card className="rounded-2xl shadow-sm">
               <CardHeader>
                 <CardTitle>Observações por instrumento</CardTitle>
-                <CardDescription>Instruções específicas para cada músico. Salvas junto com a cifra na biblioteca.</CardDescription>
+                <CardDescription>Instruções para cada músico. Salvas junto com a cifra.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {INSTRUMENTS.map(({ key, label }) => (
                   <div key={key} className="grid gap-2">
-                    <Label htmlFor={`obs-${key}`}>{label}</Label>
+                    <Label htmlFor={`obs-${key}`} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</Label>
                     <Textarea
                       id={`obs-${key}`}
                       value={instrumentNotes[key]}
                       onChange={(e) => setInstrumentNotes((prev) => ({ ...prev, [key]: e.target.value }))}
                       placeholder={`Observações para ${label.toLowerCase()}...`}
-                      className="min-h-20 text-sm"
+                      className="min-h-20 rounded-xl text-sm"
                     />
                   </div>
                 ))}
@@ -755,35 +781,46 @@ function SongDetailView({ song, onBack, onEdit }: { song: OpenedSong; onBack: ()
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="border-b bg-card">
+      <header className="sticky top-0 z-10 border-b bg-card/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
-          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
+          <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 gap-1.5 rounded-full">
             <ArrowLeft className="h-4 w-4" />
             Biblioteca
           </Button>
-          <Button variant="outline" size="sm" onClick={onEdit}>
-            <Pencil className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={onEdit} className="rounded-full px-4">
+            <Pencil className="h-3.5 w-3.5" />
             Editar
           </Button>
         </div>
       </header>
 
-      <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:px-6">
+      <div className="mx-auto max-w-3xl space-y-4 px-4 py-5 sm:px-6">
         {/* Title */}
-        <div>
-          <h1 className="text-2xl font-bold">{song.file.title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {[song.file.key ? `Tom ${song.file.key}` : "", song.file.bpm ? `${song.file.bpm} BPM` : ""].filter(Boolean).join(" · ")}
-          </p>
+        <div className="pb-1">
+          <h1 className="text-2xl font-bold leading-tight sm:text-3xl">{song.file.title}</h1>
+          {(song.file.key || song.file.bpm) && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {song.file.key && (
+                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                  Tom {song.file.key}
+                </span>
+              )}
+              {song.file.bpm && (
+                <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                  {song.file.bpm} BPM
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Reference links */}
         {song.referenceLinks.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {song.referenceLinks.map((link, i) => (
-              <Button key={i} asChild variant="outline" size="sm">
+              <Button key={i} asChild variant="outline" size="sm" className="rounded-full shadow-sm">
                 <a href={link.url} target="_blank" rel="noreferrer">
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink className="h-3.5 w-3.5" />
                   {link.label}
                 </a>
               </Button>
@@ -793,49 +830,50 @@ function SongDetailView({ song, onBack, onEdit }: { song: OpenedSong; onBack: ()
 
         {/* VS tracks */}
         {song.tracks.length > 0 && (
-          <div className="rounded-lg border bg-card p-4 space-y-3">
-            <p className="text-sm font-semibold">VS</p>
-            <div className="flex flex-wrap gap-2">
+          <div className="rounded-2xl border bg-card p-4 shadow-sm">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">VS</p>
+            <div className="-mx-1 flex flex-wrap gap-2">
               {song.tracks.map((track) => (
                 <Button
                   key={track.name}
                   size="sm"
                   variant={selectedTrack?.name === track.name ? "default" : "secondary"}
                   onClick={() => setSelectedTrack(track)}
+                  className="rounded-full"
                 >
-                  <Music2 className="h-4 w-4" />
+                  <Music2 className="h-3.5 w-3.5" />
                   {track.bpm ? `${track.bpm} BPM` : track.title}
                 </Button>
               ))}
             </div>
             {selectedTrack && (
-              <audio controls className="w-full" src={`/api/library/audio?name=${encodeURIComponent(selectedTrack.name)}`} />
+              <audio controls className="mt-4 w-full" src={`/api/library/audio?name=${encodeURIComponent(selectedTrack.name)}`} />
             )}
           </div>
         )}
 
         {/* Instrument notes */}
         {hasInstrumentNotes && (
-          <div className="rounded-lg border bg-card p-4 space-y-3">
-            <p className="text-sm font-semibold">Observações por instrumento</p>
-            <div className="flex flex-wrap gap-2">
+          <div className="rounded-2xl border bg-card p-4 shadow-sm">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Observações por instrumento</p>
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
               {INSTRUMENTS.map(({ key, label }) => (
                 <button
                   key={key}
                   onClick={() => setActiveInstrument(key)}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
                     activeInstrument === key
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-accent"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
                   }`}
                 >
                   {label}
                 </button>
               ))}
             </div>
-            <div className="min-h-14 rounded-md bg-muted/40 px-3 py-2">
+            <div className="mt-3 min-h-14 rounded-xl bg-muted/40 px-4 py-3">
               {song.instrumentNotes[activeInstrument] ? (
-                <p className="whitespace-pre-wrap text-sm">{song.instrumentNotes[activeInstrument]}</p>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed">{song.instrumentNotes[activeInstrument]}</p>
               ) : (
                 <p className="text-sm italic text-muted-foreground">
                   Sem observações para {INSTRUMENTS.find((i) => i.key === activeInstrument)?.label}.
@@ -846,12 +884,12 @@ function SongDetailView({ song, onBack, onEdit }: { song: OpenedSong; onBack: ()
         )}
 
         {/* Chord chart */}
-        <div className="rounded-lg border bg-card">
+        <div className="rounded-2xl border bg-card shadow-sm">
           <div className="border-b px-4 py-3">
-            <p className="text-sm font-semibold">Cifra</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cifra</p>
           </div>
           <div className="overflow-x-auto px-4 py-4">
-            <pre className="whitespace-pre-wrap font-mono text-[12px] leading-relaxed">{song.chartText}</pre>
+            <pre className="whitespace-pre-wrap font-mono text-[12.5px] leading-relaxed text-foreground">{song.chartText}</pre>
           </div>
         </div>
       </div>
@@ -864,9 +902,9 @@ function SongDetailView({ song, onBack, onEdit }: { song: OpenedSong; onBack: ()
 function SelectField({ label, value, onValueChange }: { label: string; value: string; onValueChange: (v: string) => void }) {
   return (
     <div className="grid gap-2">
-      <Label>{label}</Label>
+      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</Label>
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
         <SelectContent>
           {KEY_OPTIONS.map((key) => <SelectItem key={key} value={key}>{key}</SelectItem>)}
         </SelectContent>
@@ -877,7 +915,7 @@ function SelectField({ label, value, onValueChange }: { label: string; value: st
 
 function ToggleRow({ label, checked, onCheckedChange }: { label: string; checked: boolean; onCheckedChange: (v: boolean) => void }) {
   return (
-    <label className="flex min-h-12 items-center gap-3 rounded-md border bg-background p-3 text-sm font-medium">
+    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border bg-background p-3 text-sm font-medium transition-colors hover:bg-muted/40">
       <Checkbox checked={checked} onCheckedChange={(v) => onCheckedChange(Boolean(v))} />
       {label}
     </label>
@@ -903,7 +941,7 @@ function ResultCard({
   sticky?: boolean;
 }) {
   return (
-    <Card className={sticky ? "hidden lg:block lg:sticky lg:top-5 lg:self-start" : ""}>
+    <Card className={`rounded-2xl shadow-sm ${sticky ? "hidden lg:block lg:sticky lg:top-20 lg:self-start" : ""}`}>
       <CardHeader>
         <CardTitle>{title || "Resultado final"}</CardTitle>
         <CardDescription>
@@ -912,32 +950,34 @@ function ResultCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-2 print:hidden sm:flex sm:flex-wrap">
-          <Button onClick={onSave} variant="secondary" className="px-2">
+          <Button onClick={onSave} className="rounded-xl px-3 shadow-sm" variant="default">
             <Save className="h-4 w-4" />
-            Salvar na biblioteca
+            Salvar
           </Button>
-          <Button onClick={onCopy} variant="secondary" className="px-2">
+          <Button onClick={onCopy} variant="secondary" className="rounded-xl px-3">
             <Copy className="h-4 w-4" />
             Copiar
           </Button>
-          <Button onClick={onDownload} variant="outline" className="px-2">
+          <Button onClick={onDownload} variant="outline" className="rounded-xl px-3">
             <Download className="h-4 w-4" />
             TXT
           </Button>
-          <Button onClick={() => window.print()} variant="outline" className="px-2">
+          <Button onClick={() => window.print()} variant="outline" className="rounded-xl px-3">
             <Printer className="h-4 w-4" />
             Imprimir
           </Button>
         </div>
-        {saveStatus ? <p className="text-sm text-muted-foreground">{saveStatus}</p> : null}
+        {saveStatus ? (
+          <p className="rounded-xl bg-primary/10 px-3 py-2 text-sm font-medium text-primary">{saveStatus}</p>
+        ) : null}
         {referenceLinks.length > 0 && (
           <div className="space-y-2 print:hidden">
-            <h3 className="text-sm font-semibold">Referências</h3>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Referências</p>
             <div className="flex flex-wrap gap-2">
               {referenceLinks.map((link, i) => (
-                <Button key={`${link.url}-${i}`} asChild variant="outline" size="sm">
+                <Button key={`${link.url}-${i}`} asChild variant="outline" size="sm" className="rounded-full">
                   <a href={link.url} target="_blank" rel="noreferrer">
-                    <ExternalLink className="h-4 w-4" />
+                    <ExternalLink className="h-3.5 w-3.5" />
                     {link.label}
                   </a>
                 </Button>
@@ -969,23 +1009,17 @@ function parseResultFile(text: string): { instrumentNotes: InstrumentNotes; refe
   if (!text.startsWith("[OBSERVACOES]")) {
     return { instrumentNotes: emptyInstrumentNotes(), referenceLinksText: "", chartText: text };
   }
-
   const metaEnd = text.indexOf("\n[/OBSERVACOES]");
   const metaSection = text.slice("[OBSERVACOES]\n".length, metaEnd);
   const notes = emptyInstrumentNotes();
-
   for (const line of metaSection.split("\n")) {
     const colonIdx = line.indexOf(": ");
     if (colonIdx === -1) continue;
-    const rawLabel = line.slice(0, colonIdx);
-    const value = line.slice(colonIdx + 2);
-    const mappedKey = LABEL_TO_KEY[rawLabel];
-    if (mappedKey) (notes as Record<string, string>)[mappedKey] = value;
+    const mappedKey = LABEL_TO_KEY[line.slice(0, colonIdx)];
+    if (mappedKey) (notes as Record<string, string>)[mappedKey] = line.slice(colonIdx + 2);
   }
-
   let rest = text.slice(metaEnd + "\n[/OBSERVACOES]".length).trimStart();
   let referenceLinksText = "";
-
   if (rest.startsWith("[REFERENCIAS]")) {
     const refEnd = rest.indexOf("\n[/REFERENCIAS]");
     if (refEnd !== -1) {
@@ -993,7 +1027,6 @@ function parseResultFile(text: string): { instrumentNotes: InstrumentNotes; refe
       rest = rest.slice(refEnd + "\n[/REFERENCIAS]".length).trimStart();
     }
   }
-
   return { instrumentNotes: notes, referenceLinksText, chartText: rest };
 }
 
@@ -1001,21 +1034,14 @@ function serializeResultFile(chartText: string, notes: InstrumentNotes, referenc
   const hasMeta = INSTRUMENTS.some(({ key }) => notes[key].trim());
   const hasRefs = referenceLinksText.trim();
   if (!hasMeta && !hasRefs) return chartText;
-
   let result = "";
   if (hasMeta) {
     result += "[OBSERVACOES]\n";
-    result += `Bateria: ${notes.bateria}\n`;
-    result += `Violão: ${notes.violao}\n`;
-    result += `Guitarra: ${notes.guitarra}\n`;
-    result += `Baixo: ${notes.baixo}\n`;
-    result += `Vocal: ${notes.vocal}\n`;
+    result += `Bateria: ${notes.bateria}\nViolão: ${notes.violao}\nGuitarra: ${notes.guitarra}\nBaixo: ${notes.baixo}\nVocal: ${notes.vocal}\n`;
     result += "[/OBSERVACOES]\n";
   }
   if (hasRefs) {
-    result += "[REFERENCIAS]\n";
-    result += referenceLinksText.trim() + "\n";
-    result += "[/REFERENCIAS]\n";
+    result += "[REFERENCIAS]\n" + referenceLinksText.trim() + "\n[/REFERENCIAS]\n";
   }
   return result + chartText;
 }
