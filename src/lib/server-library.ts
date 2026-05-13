@@ -1,7 +1,7 @@
 import { createReadStream, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-export type LibraryKind = "cifra" | "vs";
+export type LibraryKind = "cifra" | "vs" | "resultado";
 
 export type LibraryFile = {
   name: string;
@@ -14,12 +14,14 @@ export type LibraryFile = {
 
 const DEFAULT_ROOTS: Record<LibraryKind, string[]> = {
   cifra: [process.env.CIFRAS_DIR ?? "", "/data/cifras", path.join(process.cwd(), "cifras")],
-  vs: [process.env.VS_DIR ?? "", "/data/vs", path.join(process.cwd(), "vs")]
+  vs: [process.env.VS_DIR ?? "", "/data/vs", path.join(process.cwd(), "vs")],
+  resultado: [process.env.RESULTADOS_DIR ?? "", "/data/resultados", path.join(process.cwd(), "resultados")]
 };
 
 const EXTENSIONS: Record<LibraryKind, string> = {
   cifra: ".pdf",
-  vs: ".mp3"
+  vs: ".mp3",
+  resultado: ".txt"
 };
 
 const STANDALONE_KEY_PATTERN = /^[A-G](?:#|b)?m?$/i;
@@ -31,14 +33,14 @@ export function getLibraryRoot(kind: LibraryKind) {
 }
 
 export function getWritableLibraryRoot(kind: LibraryKind) {
-  const preferred = kind === "cifra" ? process.env.CIFRAS_DIR : process.env.VS_DIR;
-  const root = preferred || `/data/${kind === "cifra" ? "cifras" : "vs"}`;
+  const preferred = kind === "cifra" ? process.env.CIFRAS_DIR : kind === "vs" ? process.env.VS_DIR : process.env.RESULTADOS_DIR;
+  const root = preferred || `/data/${kind === "cifra" ? "cifras" : kind === "vs" ? "vs" : "resultados"}`;
   mkdirSync(root, { recursive: true });
   return root;
 }
 
 export function getLibraryStatus() {
-  return (["cifra", "vs"] as const).map((kind) => {
+  return (["cifra", "vs", "resultado"] as const).map((kind) => {
     const root = getLibraryRoot(kind);
     const exists = Boolean(root && existsSync(root));
     const extension = EXTENSIONS[kind];
@@ -53,7 +55,7 @@ export function getLibraryStatus() {
       root,
       exists,
       count,
-      envVar: kind === "cifra" ? "CIFRAS_DIR" : "VS_DIR"
+      envVar: kind === "cifra" ? "CIFRAS_DIR" : kind === "vs" ? "VS_DIR" : "RESULTADOS_DIR"
     };
   });
 }

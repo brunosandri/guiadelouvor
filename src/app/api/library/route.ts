@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const query = searchParams.get("q") ?? "";
   const limit = Number(searchParams.get("limit") ?? "80");
 
-  if (kind !== "cifra" && kind !== "vs") {
+  if (kind !== "cifra" && kind !== "vs" && kind !== "resultado") {
     return NextResponse.json({ error: "Tipo de biblioteca invalido." }, { status: 400 });
   }
 

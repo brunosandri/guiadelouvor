@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     const kind = formData.get("kind") as LibraryKind | null;
     const files = formData.getAll("files");
 
-    if (kind !== "cifra" && kind !== "vs") {
+    if (kind !== "cifra" && kind !== "vs" && kind !== "resultado") {
       return NextResponse.json({ error: "Tipo de biblioteca invalido." }, { status: 400 });
     }
 

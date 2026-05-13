@@ -111,7 +111,7 @@ export function CifraApp() {
   const [rhythmType, setRhythmType] = useState("Balada simples");
   const [memoryPdfs, setMemoryPdfs] = useState<MemoryPdf[]>([]);
   const [libraryQuery, setLibraryQuery] = useState("");
-  const [libraryPdfs, setLibraryPdfs] = useState<LibraryFile[]>([]);
+  const [libraryResults, setLibraryResults] = useState<LibraryFile[]>([]);
   const [vsTracks, setVsTracks] = useState<LibraryFile[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<LibraryFile | null>(null);
   const [libraryStatus, setLibraryStatus] = useState("");
@@ -125,11 +125,11 @@ export function CifraApp() {
   const detectedKey = useMemo(() => detectOriginalKey(editedText || rawText), [editedText, rawText]);
   const librarySongs = useMemo(
     () =>
-      libraryPdfs.map((file) => ({
+      libraryResults.map((file) => ({
         ...file,
         tracks: findRelatedTracks(file, vsTracks)
       })),
-    [libraryPdfs, vsTracks]
+    [libraryResults, vsTracks]
   );
   const referenceLinks = useMemo(() => parseReferenceLinks(referenceLinksText), [referenceLinksText]);
   const detectedGuide = useMemo(() => buildSongGuide(songBlocksToSections(songBlocks)), [songBlocks]);
@@ -263,26 +263,26 @@ export function CifraApp() {
   async function loadLibraryFiles(query: string) {
     setLibraryStatus("Buscando arquivos...");
     const params = new URLSearchParams({ q: query, limit: "60" });
-    const [pdfResponse, vsResponse] = await Promise.all([
-      fetch(`/api/library?kind=cifra&${params.toString()}`),
+    const [resultResponse, vsResponse] = await Promise.all([
+      fetch(`/api/library?kind=resultado&${params.toString()}`),
       fetch(`/api/library?kind=vs&${params.toString()}`)
     ]);
 
-    const pdfData = (await pdfResponse.json()) as { files?: LibraryFile[]; error?: string };
+    const resultData = (await resultResponse.json()) as { files?: LibraryFile[]; error?: string };
     const vsData = (await vsResponse.json()) as { files?: LibraryFile[]; error?: string };
 
-    setLibraryPdfs(pdfData.files ?? []);
+    setLibraryResults(resultData.files ?? []);
     setVsTracks(vsData.files ?? []);
-    setLibraryStatus(pdfData.error ?? vsData.error ?? "");
+    setLibraryStatus(resultData.error ?? vsData.error ?? "");
   }
 
-  async function openLibraryPdf(file: LibraryFile) {
+  async function openLibraryResult(file: LibraryFile) {
     setLibraryStatus(`Abrindo ${file.name}...`);
-    const response = await fetch(`/api/library/pdf?name=${encodeURIComponent(file.name)}`);
+    const response = await fetch(`/api/library/result?name=${encodeURIComponent(file.name)}`);
     const data = (await response.json()) as { name?: string; text?: string; error?: string };
 
     if (!response.ok || !data.text) {
-      setLibraryStatus(data.error ?? "Falha ao abrir PDF.");
+      setLibraryStatus(data.error ?? "Falha ao abrir resultado.");
       return;
     }
 
@@ -294,7 +294,7 @@ export function CifraApp() {
     saveMemoryPdf(data.name ?? file.name, data.text);
     setMemoryPdfs(readMemoryPdfs());
     setActiveTab("edicao");
-    setLibraryStatus("PDF carregado na previa e salvo na memoria.");
+    setLibraryStatus("Resultado carregado para edição.");
   }
 
   async function uploadLibraryFiles(kind: "cifra" | "vs", files?: FileList | null) {
@@ -335,9 +335,24 @@ export function CifraApp() {
     setMemoryPdfs(readMemoryPdfs());
   }
 
-  function saveFinalToMemory() {
-    saveMemoryPdf(`${title || "cifra"} - resultado.txt`, finalChart);
+  async function saveFinalToMemory() {
+    const filename = `${title || "cifra"} - resultado.txt`;
+    const response = await fetch("/api/library/result", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: filename, text: finalChart })
+    });
+    const data = (await response.json()) as { saved?: string; error?: string };
+
+    if (!response.ok) {
+      setLibraryStatus(data.error ?? "Falha ao salvar resultado.");
+      return;
+    }
+
+    saveMemoryPdf(filename, finalChart);
     setMemoryPdfs(readMemoryPdfs());
+    setLibraryStatus(`Resultado salvo na biblioteca: ${data.saved ?? filename}`);
+    await loadLibraryFiles(libraryQuery);
   }
 
   function loadFromMemory(item: MemoryPdf) {
@@ -452,7 +467,7 @@ export function CifraApp() {
             <Card>
               <CardHeader>
                 <CardTitle>Biblioteca</CardTitle>
-                <CardDescription>Abra PDFs salvos na memoria, busque na pasta cifras e toque VS em MP3.</CardDescription>
+                <CardDescription>Abra resultados finais em TXT e toque VS em MP3. PDFs servem apenas para leitura inicial.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="flex flex-col gap-2 md:flex-row">
@@ -464,7 +479,7 @@ export function CifraApp() {
                       onKeyDown={(event) => {
                         if (event.key === "Enter") void loadLibraryFiles(libraryQuery);
                       }}
-                      placeholder="Buscar em cifras e VS"
+                      placeholder="Buscar resultados e VS"
                       className="pl-9"
                     />
                   </div>
@@ -480,7 +495,7 @@ export function CifraApp() {
 
                 <div className="grid gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2">
                   <label className="grid gap-2 text-sm font-medium">
-                    Enviar PDFs para cifras
+                    Enviar PDF para leitura inicial
                     <Input
                       type="file"
                       accept="application/pdf"
@@ -504,15 +519,15 @@ export function CifraApp() {
                 {libraryStatus ? <p className="text-sm text-muted-foreground">{libraryStatus}</p> : null}
 
                 <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
-                  <LibraryPanel title="Arquivos com VS" empty="Nenhum PDF encontrado na pasta cifras.">
+                  <LibraryPanel title="Resultados finais" empty="Nenhum resultado final salvo.">
                     {librarySongs.map((file) => (
                       <div key={file.name} className="rounded-md border bg-background p-3">
                         <div className="flex items-start justify-between gap-2">
-                          <button className="min-w-0 flex-1 text-left" onClick={() => openLibraryPdf(file)}>
+                          <button className="min-w-0 flex-1 text-left" onClick={() => openLibraryResult(file)}>
                             <span className="block truncate text-sm font-medium">{file.title}</span>
                             <span className="block truncate text-xs text-muted-foreground">{file.name}</span>
                           </button>
-                          <Button size="sm" variant="outline" onClick={() => openLibraryPdf(file)}>
+                          <Button size="sm" variant="outline" onClick={() => openLibraryResult(file)}>
                             <FileText className="h-4 w-4" />
                             Abrir
                           </Button>
@@ -873,7 +888,7 @@ function ResultCard({
   referenceLinks: ReferenceLink[];
   onCopy: () => void;
   onDownload: () => void;
-  onSave: () => void;
+  onSave: () => void | Promise<void>;
   sticky?: boolean;
 }) {
   return (
