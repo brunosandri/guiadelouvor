@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Copy, Download, ExternalLink, FileText, Music2, Printer, Save, Search, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, Download, ExternalLink, FileText, Music2, Printer, Save, Search, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,6 +19,7 @@ import {
   organizeSections,
   sectionsToText
 } from "@/lib/chord-parser";
+import type { SongSection } from "@/lib/chord-parser";
 import {
   applyCapoShape,
   detectOriginalKey,
@@ -85,6 +86,13 @@ type ReferenceLink = {
   label: string;
 };
 
+type SongBlock = {
+  id: string;
+  title: string;
+  notes: string;
+  content: string;
+};
+
 const MEMORY_KEY = "cifra-igreja:pdf-memory";
 
 export function CifraApp() {
@@ -110,8 +118,11 @@ export function CifraApp() {
   const [activeTab, setActiveTab] = useState("biblioteca");
   const [referenceLinksText, setReferenceLinksText] = useState("");
   const [manualGuide, setManualGuide] = useState("");
+  const [songBlocks, setSongBlocks] = useState<SongBlock[]>(() => createSongBlocksFromText(SAMPLE));
+  const [layoutColumns, setLayoutColumns] = useState("1");
 
-  const detectedKey = useMemo(() => detectOriginalKey(rawText), [rawText]);
+  const editedText = useMemo(() => songBlocksToText(songBlocks), [songBlocks]);
+  const detectedKey = useMemo(() => detectOriginalKey(editedText || rawText), [editedText, rawText]);
   const librarySongs = useMemo(
     () =>
       libraryPdfs.map((file) => ({
@@ -121,7 +132,7 @@ export function CifraApp() {
     [libraryPdfs, vsTracks]
   );
   const referenceLinks = useMemo(() => parseReferenceLinks(referenceLinksText), [referenceLinksText]);
-  const detectedGuide = useMemo(() => buildSongGuide(organizeSections(rawText)), [rawText]);
+  const detectedGuide = useMemo(() => buildSongGuide(songBlocksToSections(songBlocks)), [songBlocks]);
 
   useEffect(() => {
     setMemoryPdfs(readMemoryPdfs());
@@ -136,7 +147,7 @@ export function CifraApp() {
       Number.isFinite(capoHouseNumber) && capoHouseNumber > 0 ? capoHouseNumber : suggestCapo(originalKey, playedShape);
     const effectivePlayedShape = transposeNoteToKey(originalKey, -effectiveCapoHouse, playedShape);
     const semitones = quickTranspose === "custom" ? semitoneDistance(originalKey, newKey) : quick;
-    let workingText = rawText;
+    let workingText = editedText || rawText;
 
     if (enableCapo) {
       workingText = applyCapoShape(workingText, originalKey, playedShape, effectiveCapoHouse);
@@ -176,11 +187,32 @@ export function CifraApp() {
     playedShape,
     quickTranspose,
     rawText,
+    editedText,
     rhythmType,
     simplify,
     title,
     manualGuide
   ]);
+
+  const displayBlocks = useMemo(() => {
+    const quick = quickTranspose === "custom" ? semitoneDistance(originalKey, newKey) : Number(quickTranspose);
+    const capoHouseNumber = Number(capoHouse);
+    const effectiveNewKey = transposeNoteToKey(originalKey, quick, newKey);
+    const effectiveCapoHouse =
+      Number.isFinite(capoHouseNumber) && capoHouseNumber > 0 ? capoHouseNumber : suggestCapo(originalKey, playedShape);
+
+    return songBlocks.map((block) => {
+      let content = block.content;
+      if (enableCapo) {
+        content = applyCapoShape(content, originalKey, playedShape, effectiveCapoHouse);
+      } else {
+        const semitones = quickTranspose === "custom" ? semitoneDistance(originalKey, newKey) : quick;
+        content = transposeTextToKey(content, semitones, effectiveNewKey);
+      }
+      if (simplify) content = simplifyText(content);
+      return { ...block, content };
+    });
+  }, [capoHouse, enableCapo, newKey, originalKey, playedShape, quickTranspose, simplify, songBlocks]);
 
   async function handlePdfUpload(file?: File) {
     if (!file) return;
@@ -201,6 +233,7 @@ export function CifraApp() {
 
     setTitle(file.name.replace(/\.[^.]+$/, ""));
     setRawText(data.text);
+    setSongBlocks(createSongBlocksFromText(data.text));
     setManualGuide(buildSongGuide(organizeSections(data.text)).order);
     saveMemoryPdf(file.name, data.text);
     setMemoryPdfs(readMemoryPdfs());
@@ -240,6 +273,7 @@ export function CifraApp() {
 
     setTitle(file.title);
     setRawText(data.text);
+    setSongBlocks(createSongBlocksFromText(data.text));
     setManualGuide(buildSongGuide(organizeSections(data.text)).order);
     setSelectedTrack(findRelatedTracks(file, vsTracks)[0] ?? null);
     saveMemoryPdf(data.name ?? file.name, data.text);
@@ -294,8 +328,50 @@ export function CifraApp() {
   function loadFromMemory(item: MemoryPdf) {
     setTitle(item.name.replace(/\.[^.]+$/, ""));
     setRawText(item.text);
+    setSongBlocks(createSongBlocksFromText(item.text));
     setManualGuide(buildSongGuide(organizeSections(item.text)).order);
     setActiveTab("edicao");
+  }
+
+  function rebuildBlocksFromRawText() {
+    const next = createSongBlocksFromText(rawText);
+    setSongBlocks(next);
+    setManualGuide(buildSongGuide(songBlocksToSections(next)).order);
+  }
+
+  function updateSongBlock(id: string, patch: Partial<SongBlock>) {
+    setSongBlocks((current) => current.map((block) => (block.id === id ? { ...block, ...patch } : block)));
+  }
+
+  function moveSongBlock(index: number, direction: -1 | 1) {
+    setSongBlocks((current) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      setManualGuide(buildSongGuide(songBlocksToSections(next)).order);
+      return next;
+    });
+  }
+
+  function addSongBlock() {
+    setSongBlocks((current) => [
+      ...current,
+      {
+        id: `${Date.now()}-parte`,
+        title: "Nova parte",
+        notes: "",
+        content: ""
+      }
+    ]);
+  }
+
+  function removeSongBlock(id: string) {
+    setSongBlocks((current) => {
+      const next = current.filter((block) => block.id !== id);
+      setManualGuide(buildSongGuide(songBlocksToSections(next)).order);
+      return next;
+    });
   }
 
   function removeFromMemory(id: string) {
@@ -513,7 +589,68 @@ export function CifraApp() {
                   <Label htmlFor="title">Título</Label>
                   <Input id="title" value={title} onChange={(event) => setTitle(event.target.value)} />
                 </div>
-                <Textarea value={rawText} onChange={(event) => setRawText(event.target.value)} className="min-h-[520px] font-mono text-[15px] leading-6 sm:min-h-[440px] sm:text-sm" />
+                <div className="grid gap-2 rounded-lg border bg-muted/30 p-4">
+                  <Label htmlFor="raw-text">Texto importado</Label>
+                  <Textarea id="raw-text" value={rawText} onChange={(event) => setRawText(event.target.value)} className="min-h-32 font-mono text-[13px] leading-5" />
+                  <Button type="button" variant="outline" onClick={rebuildBlocksFromRawText} className="w-full sm:w-fit">
+                    Recriar blocos pelo texto
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="text-sm font-semibold">Blocos da música</h3>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button type="button" variant="outline" onClick={addSongBlock}>
+                        Nova parte
+                      </Button>
+                      <Select value={layoutColumns} onValueChange={setLayoutColumns}>
+                        <SelectTrigger className="w-full sm:w-44">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 coluna</SelectItem>
+                          <SelectItem value="2">2 colunas</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {songBlocks.map((block, index) => (
+                      <div key={block.id} className="rounded-lg border bg-background p-3 shadow-sm">
+                        <div className="mb-3 flex items-start justify-between gap-2 border-b pb-2">
+                          <Input
+                            value={block.title}
+                            onChange={(event) => updateSongBlock(block.id, { title: event.target.value })}
+                            className="h-10 max-w-xs font-semibold"
+                            aria-label="Título do bloco"
+                          />
+                          <div className="flex gap-1">
+                            <Button type="button" variant="outline" size="icon" onClick={() => moveSongBlock(index, -1)} disabled={index === 0} aria-label="Mover para cima">
+                              <ArrowUp className="h-4 w-4" />
+                            </Button>
+                            <Button type="button" variant="outline" size="icon" onClick={() => moveSongBlock(index, 1)} disabled={index === songBlocks.length - 1} aria-label="Mover para baixo">
+                              <ArrowDown className="h-4 w-4" />
+                            </Button>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeSongBlock(block.id)} aria-label="Remover parte">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <Textarea
+                          value={block.notes}
+                          onChange={(event) => updateSongBlock(block.id, { notes: event.target.value })}
+                          placeholder="Observações pequenas para esta parte"
+                          className="mb-3 min-h-16 text-right text-xs"
+                        />
+                        <Textarea
+                          value={block.content}
+                          onChange={(event) => updateSongBlock(block.id, { content: event.target.value })}
+                          className="min-h-40 font-mono text-[14px] leading-6"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <p className="text-sm text-muted-foreground">Tom detectado pela primeira cifra: {detectedKey}</p>
                 <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -601,6 +738,8 @@ export function CifraApp() {
               guideText={manualGuide || detectedGuide.order}
               originalKey={originalKey}
               newKey={newKey}
+              blocks={displayBlocks}
+              columns={layoutColumns}
               finalChart={finalChart}
               referenceLinks={referenceLinks}
               onCopy={copyFinal}
@@ -615,6 +754,8 @@ export function CifraApp() {
           guideText={manualGuide || detectedGuide.order}
           originalKey={originalKey}
           newKey={newKey}
+          blocks={displayBlocks}
+          columns={layoutColumns}
           finalChart={finalChart}
           referenceLinks={referenceLinks}
           onCopy={copyFinal}
@@ -698,6 +839,8 @@ function ResultCard({
   guideText,
   originalKey,
   newKey,
+  blocks,
+  columns,
   finalChart,
   referenceLinks,
   onCopy,
@@ -709,6 +852,8 @@ function ResultCard({
   guideText: string;
   originalKey: string;
   newKey: string;
+  blocks: SongBlock[];
+  columns: string;
   finalChart: string;
   referenceLinks: ReferenceLink[];
   onCopy: () => void;
@@ -776,7 +921,15 @@ function ResultCard({
         ) : null}
         <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
           <div id="print-sheet" className="mx-auto min-h-[70vh] w-[760px] max-w-none bg-white p-4 shadow-sm sm:min-h-[820px] sm:w-full sm:max-w-[794px] sm:p-8">
-            <pre className="whitespace-pre-wrap font-mono text-[11px] leading-[1.35] text-slate-950 sm:text-[12px]">{finalChart}</pre>
+            <div className={columns === "2" ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}>
+              {blocks.map((block) => (
+                <section key={block.id} className="break-inside-avoid rounded-md border border-slate-300 bg-white p-3 text-slate-950">
+                  <h3 className="border-b border-slate-300 pb-1 text-sm font-bold uppercase tracking-normal">{block.title}</h3>
+                  {block.notes ? <p className="mt-1 text-right text-[10px] leading-tight text-slate-600">{block.notes}</p> : null}
+                  <pre className="mt-2 whitespace-pre-wrap font-mono text-[11px] leading-[1.35] sm:text-[12px]">{formatBracketChords(block.content)}</pre>
+                </section>
+              ))}
+            </div>
           </div>
         </div>
       </CardContent>
@@ -878,4 +1031,34 @@ function splitGuideItems(value: string) {
     .split(/>|\n|,/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function createSongBlocksFromText(text: string): SongBlock[] {
+  return organizeSections(text).map((section, index) => ({
+    id: `${Date.now()}-${index}-${section.title}`,
+    title: section.title,
+    notes: "",
+    content: section.lines.join("\n").trim()
+  }));
+}
+
+function songBlocksToSections(blocks: SongBlock[]): SongSection[] {
+  return blocks
+    .filter((block) => block.title.trim() || block.content.trim())
+    .map((block) => ({
+      title: block.title.trim() || "Parte",
+      lines: block.content.split(/\r?\n/)
+    }));
+}
+
+function songBlocksToText(blocks: SongBlock[]) {
+  return blocks
+    .filter((block) => block.title.trim() || block.content.trim())
+    .map((block) =>
+      [`[${block.title.trim() || "Parte"}]`, block.notes.trim() ? `Obs: ${block.notes.trim()}` : "", block.content]
+        .filter((line) => line !== "")
+        .join("\n")
+        .trimEnd()
+    )
+    .join("\n\n");
 }
