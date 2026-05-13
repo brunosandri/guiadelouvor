@@ -247,10 +247,11 @@ export function CifraApp() {
   }
 
   function openEditorForSong(song: OpenedSong) {
+    const body = extractBodyFromChart(song.chartText);
     setTitle(song.file.title);
-    setRawText(song.chartText);
-    setSongBlocks(createSongBlocksFromText(song.chartText));
-    setManualGuide(buildSongGuide(organizeSections(song.chartText)).order);
+    setRawText(body);
+    setSongBlocks(createSongBlocksFromText(body));
+    setManualGuide(buildSongGuide(organizeSections(body)).order);
     setInstrumentNotes(song.instrumentNotes);
     setReferenceLinksText(song.referenceLinks.map((l) => l.url).join("\n"));
     setSaveStatus("");
@@ -515,7 +516,7 @@ export function CifraApp() {
             <Card className="rounded-2xl shadow-sm">
               <CardHeader>
                 <CardTitle>Importar PDF</CardTitle>
-                <CardDescription>Extraia o texto e revise antes de editar.</CardDescription>
+                <CardDescription>Carregue um PDF — o texto extraído aparece abaixo para revisão.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Label
@@ -532,6 +533,16 @@ export function CifraApp() {
                   <Input id="pdf" type="file" accept="application/pdf" className="max-w-sm bg-card text-sm" onChange={(e) => handlePdfUpload(e.target.files?.[0])} />
                 </Label>
                 {pdfStatus ? <p className="rounded-xl bg-muted/50 px-4 py-3 text-sm text-muted-foreground">{pdfStatus}</p> : null}
+
+                {rawText && rawText !== SAMPLE && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="raw-text" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Texto extraído — revise e ajuste</Label>
+                    <Textarea id="raw-text" value={rawText} onChange={(e) => setRawText(e.target.value)} className="min-h-48 rounded-xl font-mono text-[13px] leading-5" />
+                    <Button type="button" variant="outline" onClick={rebuildBlocksFromRawText} className="w-full rounded-xl sm:w-fit">
+                      Recriar blocos pelo texto
+                    </Button>
+                  </div>
+                )}
 
                 {memoryPdfs.length > 0 && (
                   <div>
@@ -568,62 +579,6 @@ export function CifraApp() {
                   <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} className="h-11 rounded-xl text-base font-medium" />
                 </div>
 
-                <div className="grid gap-2 rounded-xl border bg-muted/30 p-4">
-                  <Label htmlFor="raw-text" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Texto importado</Label>
-                  <Textarea id="raw-text" value={rawText} onChange={(e) => setRawText(e.target.value)} className="min-h-32 rounded-xl font-mono text-[13px] leading-5" />
-                  <Button type="button" variant="outline" onClick={rebuildBlocksFromRawText} className="w-full rounded-xl sm:w-fit">
-                    Recriar blocos pelo texto
-                  </Button>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Blocos da música</p>
-                    <Button type="button" variant="outline" size="sm" onClick={addSongBlock} className="rounded-full px-4">
-                      + Nova parte
-                    </Button>
-                  </div>
-                  <div className="space-y-3">
-                    {songBlocks.map((block, index) => (
-                      <div key={block.id} className="rounded-xl border bg-card p-3 shadow-sm">
-                        <div className="mb-3 flex items-center justify-between gap-2 border-b pb-2">
-                          <Input
-                            value={block.title}
-                            onChange={(e) => updateSongBlock(block.id, { title: e.target.value })}
-                            className="h-9 max-w-xs rounded-lg font-semibold"
-                          />
-                          <div className="flex gap-1">
-                            <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => moveSongBlock(index, -1)} disabled={index === 0}>
-                              <ArrowUp className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => moveSongBlock(index, 1)} disabled={index === songBlocks.length - 1}>
-                              <ArrowDown className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground" onClick={() => removeSongBlock(block.id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                        <Textarea
-                          value={block.notes}
-                          onChange={(e) => updateSongBlock(block.id, { notes: e.target.value })}
-                          placeholder="Observação desta parte"
-                          className="mb-3 min-h-14 rounded-lg text-right text-xs"
-                        />
-                        <Textarea
-                          value={block.content}
-                          onChange={(e) => updateSongBlock(block.id, { content: e.target.value })}
-                          className="min-h-40 rounded-lg font-mono text-[14px] leading-6"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <p className="rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                  Tom detectado: <span className="font-semibold text-foreground">{detectedKey}</span>
-                </p>
-
                 <div className="grid gap-3 rounded-xl border bg-muted/30 p-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                     <div className="grid flex-1 gap-2">
@@ -633,15 +588,64 @@ export function CifraApp() {
                         value={manualGuide}
                         onChange={(e) => setManualGuide(e.target.value)}
                         placeholder="Introdução > Verso 1 > Coro > Verso 2 > Coro > Ponte > Coro"
-                        className="min-h-20 rounded-xl text-sm"
+                        className="min-h-16 rounded-xl text-sm"
                       />
                     </div>
                     <Button type="button" variant="outline" onClick={() => setManualGuide(detectedGuide.order)} className="w-full rounded-xl sm:w-auto">
-                      Usar guia detectada
+                      Detectar
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">Detectado: {detectedGuide.order || "Nenhuma seção identificada"}</p>
                 </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Partes da música</p>
+                    <Button type="button" variant="outline" size="sm" onClick={addSongBlock} className="rounded-full px-4">
+                      + Nova parte
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {songBlocks.map((block, index) => (
+                      <div key={block.id} className="rounded-xl border bg-card shadow-sm">
+                        <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
+                          <Input
+                            value={block.title}
+                            onChange={(e) => updateSongBlock(block.id, { title: e.target.value })}
+                            className="h-8 max-w-[160px] rounded-lg border-0 bg-transparent px-1 text-xs font-bold uppercase tracking-wider shadow-none focus-visible:ring-0"
+                          />
+                          <div className="flex gap-1">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => moveSongBlock(index, -1)} disabled={index === 0}>
+                              <ArrowUp className="h-3 w-3" />
+                            </Button>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => moveSongBlock(index, 1)} disabled={index === songBlocks.length - 1}>
+                              <ArrowDown className="h-3 w-3" />
+                            </Button>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-muted-foreground" onClick={() => removeSongBlock(block.id)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="p-3 space-y-2">
+                          <Textarea
+                            value={block.notes}
+                            onChange={(e) => updateSongBlock(block.id, { notes: e.target.value })}
+                            placeholder="Observação desta parte (ex: Somente surdo, Groove completo...)"
+                            className="min-h-12 rounded-lg text-right text-xs italic text-muted-foreground"
+                          />
+                          <Textarea
+                            value={block.content}
+                            onChange={(e) => updateSongBlock(block.id, { content: e.target.value })}
+                            className="min-h-36 rounded-lg font-mono text-[13px] leading-6"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                  Tom detectado: <span className="font-semibold text-foreground">{detectedKey}</span>
+                </p>
 
                 <div className="grid gap-2">
                   <Label htmlFor="reference-links" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Links de referência</Label>
@@ -650,7 +654,7 @@ export function CifraApp() {
                     value={referenceLinksText}
                     onChange={(e) => setReferenceLinksText(e.target.value)}
                     placeholder="Cole um link por linha (YouTube, etc.)"
-                    className="min-h-20 rounded-xl text-sm"
+                    className="min-h-16 rounded-xl text-sm"
                   />
                 </div>
 
@@ -1155,13 +1159,31 @@ function getReferenceLabel(url: string) {
   return hostname;
 }
 
+function extractBodyFromChart(chartText: string): string {
+  const lines = chartText.split(/\r?\n/);
+  const firstSectionIdx = lines.findIndex((line) => detectSectionTitle(line));
+  if (firstSectionIdx === -1) return chartText;
+  return lines.slice(firstSectionIdx).join("\n");
+}
+
 function createSongBlocksFromText(text: string): SongBlock[] {
-  return organizeSections(text).map((section, index) => ({
-    id: `${Date.now()}-${index}-${section.title}`,
-    title: section.title,
-    notes: "",
-    content: section.lines.join("\n").trim()
-  }));
+  return organizeSections(text).map((section, index) => {
+    const obsLines: string[] = [];
+    const contentLines: string[] = [];
+    for (const line of section.lines) {
+      if (line.trim().startsWith("Obs:")) {
+        obsLines.push(line.replace(/^Obs:\s*/, "").trim());
+      } else {
+        contentLines.push(line);
+      }
+    }
+    return {
+      id: `${Date.now()}-${index}-${section.title}`,
+      title: section.title,
+      notes: obsLines.join("\n"),
+      content: contentLines.join("\n").trim()
+    };
+  });
 }
 
 function songBlocksToSections(blocks: SongBlock[]): SongSection[] {
