@@ -375,10 +375,10 @@ export function CifraApp() {
         <header className="sticky top-0 z-10 border-b bg-card/90 backdrop-blur-md">
           <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-white shadow-md ring-2 ring-primary/20">
                 <Music2 className="h-4 w-4" />
               </div>
-              <span className="font-semibold tracking-tight">Guia de Louvor</span>
+              <span className="font-bold tracking-tight">Guia de Louvor</span>
             </div>
             <Button
               size="sm"
@@ -435,8 +435,8 @@ export function CifraApp() {
             )}
             {librarySongs.length === 0 && !libraryStatus && (
               <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/30 py-14 text-center">
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
-                  <Music2 className="h-6 w-6 text-muted-foreground" />
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-muted to-muted/40 shadow-sm">
+                  <Music2 className="h-6 w-6 text-muted-foreground/70" />
                 </div>
                 <p className="text-sm font-medium text-muted-foreground">Nenhuma música na biblioteca</p>
                 <p className="mt-1 text-xs text-muted-foreground">Crie uma nova cifra ou importe um PDF</p>
@@ -448,7 +448,7 @@ export function CifraApp() {
                 onClick={() => openSong(song)}
                 className="group flex w-full items-center gap-3.5 rounded-2xl border bg-card px-4 py-3.5 text-left shadow-sm transition-all duration-150 hover:shadow-md active:scale-[0.985]"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 transition-colors group-hover:bg-primary/15">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 shadow-sm ring-1 ring-primary/10 transition-all group-hover:from-primary/25 group-hover:to-primary/10 group-hover:shadow">
                   <Music2 className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -515,15 +515,22 @@ export function CifraApp() {
           <TabsContent value="pdf">
             <Card className="rounded-2xl shadow-sm">
               <CardHeader>
-                <CardTitle>Importar PDF</CardTitle>
-                <CardDescription>Carregue um PDF — o texto extraído aparece abaixo para revisão.</CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 shadow-sm ring-1 ring-primary/10">
+                    <Upload className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>Importar PDF</CardTitle>
+                    <CardDescription>Carregue um PDF — o texto extraído aparece abaixo para revisão.</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Label
                   htmlFor="pdf"
                   className="flex min-h-36 cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/40 p-4 text-center transition-colors hover:bg-muted/60 sm:p-8"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 shadow-sm ring-2 ring-primary/10">
                     <Upload className="h-6 w-6 text-primary" />
                   </div>
                   <div>
@@ -570,8 +577,15 @@ export function CifraApp() {
           <TabsContent value="edicao">
             <Card className="rounded-2xl shadow-sm">
               <CardHeader>
-                <CardTitle>Edição da cifra</CardTitle>
-                <CardDescription>Use acordes entre colchetes: [Am]palavra de Deus.</CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 shadow-sm ring-1 ring-primary/10">
+                    <Pencil className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>Edição da cifra</CardTitle>
+                    <CardDescription>Use acordes entre colchetes: [Am]palavra de Deus.</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="grid gap-2">
@@ -715,8 +729,15 @@ export function CifraApp() {
           <TabsContent value="observacoes">
             <Card className="rounded-2xl shadow-sm">
               <CardHeader>
-                <CardTitle>Observações por instrumento</CardTitle>
-                <CardDescription>Instruções para cada músico. Salvas junto com a cifra.</CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 shadow-sm ring-1 ring-primary/10">
+                    <FileText className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>Observações por instrumento</CardTitle>
+                    <CardDescription>Instruções para cada músico. Salvas junto com a cifra.</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {INSTRUMENTS.map(({ key, label }) => (
@@ -991,10 +1012,17 @@ function ResultCard({
   return (
     <Card className={`rounded-2xl shadow-sm ${sticky ? "hidden lg:block lg:sticky lg:top-20 lg:self-start" : ""}`}>
       <CardHeader>
-        <CardTitle>{title || "Resultado final"}</CardTitle>
-        <CardDescription>
-          {[`Tom ${newKey}`, `Capo: ${capo}`, rhythm ? `Ritmo: ${rhythm}` : ""].filter(Boolean).join(" | ")}
-        </CardDescription>
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-white shadow-md ring-2 ring-primary/20">
+            <Music2 className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <CardTitle className="truncate">{title || "Resultado final"}</CardTitle>
+            <CardDescription>
+              {[`Tom ${newKey}`, `Capo: ${capo}`, rhythm ? `Ritmo: ${rhythm}` : ""].filter(Boolean).join(" · ")}
+            </CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-2 print:hidden sm:flex sm:flex-wrap">
